@@ -1,0 +1,67 @@
+services:
+  pwdsv:
+    image: ${PWDSV_IMAGE:-pwdsv/server:latest}
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile.debian
+    container_name: pwdsv-server
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      ROCKET_ADDRESS: "0.0.0.0"
+      ROCKET_PORT: "80"
+      ROCKET_PROFILE: "release"
+      WEBSOCKET_ENABLED: "true"
+      WEB_VAULT_ENABLED: "true"
+      WEB_VAULT_FOLDER: "/web-vault"
+    volumes:
+      - pwdsv_data:/data
+      - ../../data/web-vault:/web-vault:ro
+      - ../../data/client-releases:/data/client-releases:ro
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD", "/pwdsv", "--version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: pwdsv-caddy
+    restart: unless-stopped
+    depends_on:
+      - pwdsv
+    env_file:
+      - .env
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../../data/client-releases:/srv/client-releases:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  backup:
+    image: ${PWDSV_IMAGE:-pwdsv/server:latest}
+    container_name: pwdsv-backup
+    restart: unless-stopped
+    depends_on:
+      - pwdsv
+    env_file:
+      - .env
+    entrypoint: ["/bin/sh", "/backup-loop.sh"]
+    volumes:
+      - pwdsv_data:/data
+      - ./backups:/backups
+      - ./backup-loop.sh:/backup-loop.sh:ro
+
+volumes:
+  pwdsv_data:
+    name: pwdsv_prod_data
+  caddy_data:
+    name: pwdsv_caddy_data
+  caddy_config:
+    name: pwdsv_caddy_config

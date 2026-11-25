@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <title>KeyNexus</title>
+    <link rel="stylesheet" href="mobile.css" />
+  </head>
+  <body>
+    <!-- ==================== 1. 手机解锁屏（指纹/面容 + 短 PIN + 主密码） ==================== -->
+    <section id="m-auth" class="m-auth">
+      <div class="m-ambient"></div>
+      <div class="m-auth-box">
+        <div class="m-logo-row">
+          <div class="m-brand-mark">
+            <img src="brand-icon.png" alt="KeyNexus" class="m-brand-img" />
+          </div>
+          <div>
+            <h1><span class="m-brand-en-lg">KeyNexus</span></h1>
+            <p>零知识四端密码中枢 · 拍照与多格式 AI 识密</p>
+          </div>
+        </div>
+
+        <!-- 快捷解锁（指纹 / PIN） -->
+        <form id="m-quick-form" class="m-card m-elevated" hidden autocomplete="off">
+          <div id="m-quick-account" class="m-pill-info"></div>
+          <button type="button" class="m-btn bio-btn" id="btn-m-bio" hidden>👆 指纹 / 面容一键秒开</button>
+          <label class="m-field" style="margin-top: 12px">
+            <span>输入本机快捷 PIN</span>
+            <input id="m-pin-in" type="password" inputmode="numeric" placeholder="••••" class="m-pin-big" maxlength="16" />
+          </label>
+          <button type="submit" class="m-btn primary">立即解锁</button>
+          <button type="button" class="m-btn link" id="btn-m-use-master">切换主密码重新登录</button>
+          <p id="m-quick-err" class="m-err" hidden></p>
+        </form>
+
+        <!-- 主密码登录 -->
+        <form id="m-master-form" class="m-card m-elevated" autocomplete="off">
+          <label class="m-field">
+            <span>KeyNexus 服务器地址</span>
+            <input id="m-server" type="url" placeholder="https://vault.example.com" spellcheck="false" required />
+          </label>
+          <label class="m-field">
+            <span>账号邮箱</span>
+            <input id="m-email" type="email" placeholder="you@example.com" spellcheck="false" required />
+          </label>
+          <label class="m-field">
+            <span>主密码</span>
+            <input id="m-password" type="password" placeholder="仅在本机派生主密钥，永不上传" required />
+          </label>
+          <label class="m-check">
+            <input id="m-insecure" type="checkbox" />
+            <span>信任局域网 / Tailscale 自签 HTTPS 证书</span>
+          </label>
+
+          <div id="m-2fa-box" class="m-subcard" hidden>
+            <label class="m-field">
+              <span>两步验证方式</span>
+              <select id="m-2fa-provider"></select>
+            </label>
+            <label class="m-field">
+              <span>验证码</span>
+              <input id="m-2fa-code" type="text" inputmode="numeric" placeholder="6 位动态码或恢复码" />
+            </label>
+          </div>
+
+          <label class="m-field">
+            <span>设置手机快捷 PIN（选填，同时激活指纹/面容快解）</span>
+            <input id="m-setup-pin" type="password" inputmode="numeric" placeholder="建议 4~8 位数字" maxlength="16" />
+          </label>
+
+          <button type="submit" class="m-btn primary" id="btn-m-login">解锁进入密码库</button>
+          <p id="m-master-err" class="m-err" hidden></p>
+        </form>
+      </div>
+    </section>
+
+    <!-- ==================== 2. 手机主应用壳 ==================== -->
+    <section id="m-app" class="m-app" hidden>
+      <header class="m-topbar">
+        <div class="m-top-left">
+          <div class="m-brand-mark sm">
+            <img src="brand-icon.png" alt="KeyNexus" class="m-brand-img" />
+          </div>
+          <div class="m-top-titles">
+            <div class="m-top-brand-line">
+              <b class="m-brand-cn">KeyNexus</b>
+              <span class="m-dot-sep">·</span>
+              <span id="m-top-title" class="m-page-name">密码库</span>
+            </div>
+            <small id="m-top-sub" class="m-top-sub">端到端加密已连接</small>
+          </div>
+        </div>
+        <div class="m-top-btns">
+          <button type="button" class="m-icon-btn" id="btn-m-sync" title="立即同步" aria-label="立即同步">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12a9 9 0 0 0-15.5-6.36L3 8" />
+              <path d="M3 3v5h5" />
+              <path d="M3 12a9 9 0 0 0 15.5 6.36L21 16" />
+              <path d="M16 16h5v5" />
+            </svg>
+          </button>
+          <button type="button" class="m-icon-btn lock-btn" id="btn-m-lock" title="锁定密码库" aria-label="锁定密码库">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="11" width="16" height="10" rx="2.5" />
+              <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+              <circle cx="12" cy="16" r="1.2" fill="currentColor" stroke="none" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="m-main">
+        <!-- Tab 1：密码库（四态 Bento 速览 + 单手一键复制列表） -->
+        <section id="tab-vault" class="m-page">
+          <div class="m-bento-strip">
+            <button type="button" class="m-bento-item" data-bento="universal">
+              <span class="st-dot uni">🌐 通用</span>
+              <strong id="mc-uni">0</strong>
+            </button>
+            <button type="button" class="m-bento-item" data-bento="mobile">
+              <span class="st-dot mob">📱 手机</span>
+              <strong id="mc-mob">0</strong>
+            </button>
+            <button type="button" class="m-bento-item" data-bento="desktop">
+              <span class="st-dot desk">💻 电脑</span>
+              <strong id="mc-desk">0</strong>
+            </button>
+            <button type="button" class="m-bento-item" data-bento="web">
+              <span class="st-dot web">🕸 网页</span>
+              <strong id="mc-web">0</strong>
+            </button>
+          </div>
+
+          <div class="m-search-wrap">
+            <svg class="m-search-ic" viewBox="0 0 20 20" width="15" height="15">
+              <path d="M8.5 3a5.5 5.5 0 104.38 8.82l3.65 3.65a.75.75 0 101.06-1.06l-3.65-3.65A5.5 5.5 0 008.5 3zm-4 5.5a4 4 0 118 0 4 4 0 01-8 0z" fill="currentColor" />
+            </svg>
+            <input id="m-search" type="search" class="m-search" placeholder="搜索名称、账号、域名、App 包名…" spellcheck="false" />
+          </div>
+
+          <div class="m-chips" id="m-scope-chips">
+            <button type="button" class="chip active" data-scope="fit">📱 本机适用</button>
+            <button type="button" class="chip" data-scope="universal">🌐 三端通用</button>
+            <button type="button" class="chip" data-scope="mobile">📱 手机专属</button>
+            <button type="button" class="chip" data-scope="desktop">💻 电脑端</button>
+            <button type="button" class="chip" data-scope="web">🕸 网页端</button>
+            <button type="button" class="chip" data-scope="fav">★ 收藏</button>
+            <button type="button" class="chip" data-scope="all">全部</button>
+          </div>
+
+          <ul id="m-list" class="m-list"></ul>
+
+          <div id="m-empty" class="m-empty-box" hidden>
+            <div class="m-empty-ic">🔐</div>
+            <p>当前筛选下暂无密码记录</p>
+            <div class="m-grid-2" style="max-width: 260px; margin: 10px auto 0">
+              <button type="button" class="m-btn ghost small" id="btn-m-empty-add">＋ 记一笔</button>
+              <button type="button" class="m-btn ghost small" id="btn-m-empty-ai">✨ 拍照导密</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab 1.5：独立 Authenticator 竖栏（实时动态码 + 一键复制 + otpauth 自动解析添加） -->
+        <section id="tab-auth" class="m-page" hidden>
+          <div class="m-auth-toolbar">
+            <div class="m-search-wrap" style="flex: 1; margin-bottom: 0">
+              <svg class="m-search-ic" viewBox="0 0 20 20" width="15" height="15">
+                <path d="M8.5 3a5.5 5.5 0 104.38 8.82l3.65 3.65a.75.75 0 101.06-1.06l-3.65-3.65A5.5 5.5 0 008.5 3zm-4 5.5a4 4 0 118 0 4 4 0 01-8 0z" fill="currentColor" />
+              </svg>
+              <input id="ma-search" type="search" class="m-search" placeholder="搜索验证器服务名、账号…" spellcheck="false" />
+            </div>
+            <button type="button" class="m-btn primary small m-auth-add-btn" id="btn-ma-toggle-add">＋ 添加</button>
+          </div>
+
+          <form id="ma-add-card" class="m-card m-auth-add-card" hidden autocomplete="off">
+            <div class="m-row-between" style="margin-bottom: 10px">
+              <strong style="font-size: 14.5px">新增 Authenticator 验证器</strong>
+              <button type="button" class="m-btn ghost small" id="btn-ma-cancel-add">收起</button>
+            </div>
+            <button type="button" class="m-btn ghost small" id="btn-ma-scan-qr" style="width: 100%; margin-bottom: 10px">
+              📷 扫描 / 从相册识别二维码 (otpauth://)
+            </button>
+            <input id="ma-qr-input" type="file" accept="image/*" capture="environment" hidden />
+            <label class="m-field">
+              <span>Authenticator 密钥或 otpauth:// *</span>
+              <input id="ma-secret" type="text" placeholder="粘贴 Base32 密钥或 otpauth://totp/..." spellcheck="false" required />
+            </label>
+            <label class="m-field">
+              <span>服务名称 *</span>
+              <input id="ma-name" type="text" placeholder="如：GitHub / Google / 微信" required />
+            </label>
+            <label class="m-field">
+              <span>账号 / 备注（选填）</span>
+              <input id="ma-user" type="text" placeholder="邮箱、手机号或用户名" spellcheck="false" />
+            </label>
+            <p id="ma-add-err" class="m-err" hidden></p>
+            <button type="submit" class="m-btn primary" id="btn-ma-save">🔒 加密保存验证器</button>
+          </form>
+
+          <ul id="ma-list" class="m-auth-list"></ul>
+
+          <div id="ma-empty" class="m-empty-box" hidden>
+            <div class="m-empty-ic">⏱</div>
+            <p>暂无 Authenticator 验证器</p>
+            <p class="m-muted" style="margin: 4px 0 12px">可点击右下角扫码或右上角添加，也可在密码条目中填写密钥</p>
+            <button type="button" class="m-btn ghost small" id="btn-ma-empty-add">＋ 添加验证器</button>
+          </div>
+
+          <div class="m-auth-foot-note">
+            <b>这是什么？</b>
+            <p>当网站或 App 要求提供验证器代码时，轻点上方任意卡片即可一键复制 6 位动态码完成两步验证。</p>
+          </div>
+
+          <button type="button" class="m-auth-fab" id="btn-ma-fab" title="添加或扫描验证器" aria-label="添加或扫描验证器">
+            <svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1.2" />
+              <rect x="14" y="3" width="7" height="7" rx="1.2" />
+              <rect x="3" y="14" width="7" height="7" rx="1.2" />
+              <path d="M14 14h3v3h-3zM20 14v3M14 20h3M20 20h1" />
+            </svg>
+          </button>
+        </section>
+
+        <!-- 条目详情页（品牌色圆角头像 + 彩色明文密码 + 动态码进度环） -->
+        <section id="tab-detail" class="m-page" hidden>
+          <div class="m-row-between" style="margin-bottom: 10px">
+            <button type="button" class="m-btn ghost small" id="btn-md-back">← 返回列表</button>
+            <div style="display: flex; gap: 8px">
+              <button type="button" class="m-btn ghost small" id="btn-md-edit">✎ 编辑</button>
+              <button type="button" class="m-btn ghost small danger" id="btn-md-del">删除</button>
+            </div>
+          </div>
+
+          <div class="m-card m-hero-card">
+            <div class="m-avatar lg" id="md-avatar">PW</div>
+            <div class="m-hero-meta">
+              <div class="m-hero-title-row">
+                <h2 id="md-name"></h2>
+                <button type="button" class="m-fav-btn" id="btn-md-fav" title="收藏">☆</button>
+              </div>
+              <div id="md-badges" class="m-badges"></div>
+            </div>
+          </div>
+
+          <div class="m-card" style="margin-top: 10px; padding: 6px 14px">
+            <div class="m-kv">
+              <div class="m-kv-main">
+                <span class="m-kv-lbl">账号 / 用户名</span>
+                <code id="md-user" class="m-kv-val"></code>
+              </div>
+              <button type="button" class="m-btn ghost small" data-mcopy="username">复制</button>
+            </div>
+
+            <div class="m-kv">
+              <div class="m-kv-main">
+                <div class="m-lbl-row">
+                  <span class="m-kv-lbl">登录密码</span>
+                  <span id="md-strength" class="m-strength-pill" hidden></span>
+                </div>
+                <div id="md-pwd" class="m-kv-val pwd-masked">••••••••••••</div>
+              </div>
+              <div style="display: flex; gap: 6px">
+                <button type="button" class="m-btn ghost small" id="btn-md-eye">显示</button>
+                <button type="button" class="m-btn primary small" data-mcopy="password">复制</button>
+              </div>
+            </div>
+
+            <div class="m-kv" id="md-totp-row" hidden>
+              <div class="m-kv-main">
+                <span class="m-kv-lbl">Authenticator 动态码</span>
+                <div class="m-totp-line">
+                  <code id="md-totp" class="totp"></code>
+                  <span class="m-totp-ring-box">
+                    <svg class="m-totp-svg" viewBox="0 0 24 24" width="18" height="18">
+                      <circle class="r-bg" cx="12" cy="12" r="9" />
+                      <circle class="r-fg" id="md-totp-circle" cx="12" cy="12" r="9" stroke-dasharray="56.55" stroke-dashoffset="0" />
+                    </svg>
+                    <em id="md-totp-left"></em>
+                  </span>
+                </div>
+              </div>
+              <button type="button" class="m-btn ghost small" data-mcopy="totp">复制</button>
+            </div>
+          </div>
+
+          <div class="m-card" id="md-uris-row" hidden style="margin-top: 10px">
+            <div class="m-sec-title">关联终端与自动填充规则</div>
+            <div id="md-uris" class="m-uri-list"></div>
+          </div>
+
+          <div class="m-card" id="md-notes-row" hidden style="margin-top: 10px">
+            <div class="m-sec-title">安全备注</div>
+            <div id="md-notes" class="m-notes-txt"></div>
+          </div>
+        </section>
+
+        <!-- Tab 2：拍照 & 多格式文件 AI 识密上传 -->
+        <section id="tab-ai" class="m-page" hidden>
+          <div class="m-stepper">
+            <span class="ms-step active"><b>1</b> 拍照/选文件</span>
+            <i>→</i>
+            <span class="ms-step"><b>2</b> AI 归一解析</span>
+            <i>→</i>
+            <span class="ms-step"><b>3</b> 核对上云</span>
+          </div>
+
+          <div class="m-card">
+            <div class="m-row-between" style="margin-bottom: 4px">
+              <span style="font-size: 12px; color: var(--muted)">本机直连 AI 模型源（不经过服务器）</span>
+              <button type="button" class="m-link-inline" id="btn-m-jump-prov">⚙ 切换/自定义模型</button>
+            </div>
+            <select id="m-ai-provider"></select>
+
+            <label class="m-check" style="margin-top: 10px">
+              <input id="m-force-ai" type="checkbox" />
+              <span>标准表格也强制调 AI 深度推断四态端口</span>
+            </label>
+
+            <div class="m-action-tiles">
+              <button type="button" class="m-action-tile cam" id="btn-m-camera">
+                <span class="tile-ic">📷</span>
+                <b>拍照识密码</b>
+                <small>手写本 · 电脑屏幕 · 路由器铭牌</small>
+              </button>
+              <button type="button" class="m-action-tile doc" id="btn-m-file">
+                <span class="tile-ic">📂</span>
+                <b>选文档/表格/截图</b>
+                <small>.xlsx · .docx · .pdf · .csv · 相册图</small>
+              </button>
+            </div>
+
+            <input id="m-camera-input" type="file" accept="image/*" capture="environment" hidden />
+            <input id="m-file-input" type="file" accept=".csv,.tsv,.xlsx,.docx,.pdf,.txt,.md,.json,image/*" hidden />
+
+            <details class="m-paste-details">
+              <summary>📝 或直接粘贴一段杂乱文字记录让 AI 提取</summary>
+              <textarea id="m-raw-text" rows="3" placeholder="如：飞书 zhangsan@x.com 密码 Abc#123 三端通用" style="margin-top: 8px"></textarea>
+              <button type="button" class="m-btn ghost" id="btn-m-parse-text" style="margin-top: 8px">开始提取上方文字</button>
+            </details>
+          </div>
+
+          <p id="m-ai-status" class="m-pill-info" style="margin-top: 10px" hidden></p>
+          <p id="m-ai-err" class="m-err" hidden></p>
+
+          <div id="m-preview-box" hidden>
+            <div class="m-row-between" style="margin: 14px 0 8px">
+              <b id="m-preview-title">识别结果核对</b>
+              <select id="m-batch-scope" style="width: auto; padding: 5px 9px; font-size: 12px">
+                <option value="">批量设适用端…</option>
+                <option value="universal">🌐 三端通用</option>
+                <option value="mobile">📱 手机端</option>
+                <option value="desktop">💻 电脑端</option>
+                <option value="web">🕸 网页端</option>
+              </select>
+            </div>
+            <div id="m-preview-cards"></div>
+            <button type="button" class="m-btn primary" id="btn-m-commit-import" style="margin-top: 10px">
+              🔒 本地零知识加密并批量上传
+            </button>
+          </div>
+        </section>
+
+        <!-- Tab 3：手动提交 / 编辑密码（含已安装手机 App 选择器） -->
+        <section id="tab-edit" class="m-page" hidden>
+          <form id="m-edit-form" class="m-card" autocomplete="off">
+            <h3 id="me-title" style="margin: 0 0 12px; font-size: 16px">提交新密码</h3>
+            <label class="m-field">
+              <span>名称 *</span>
+              <input id="me-name" type="text" placeholder="如：微信 / 招商银行 / GitHub" required />
+            </label>
+            <label class="m-field">
+              <span>适用端口范围（服务端四态分类）</span>
+              <select id="me-scope">
+                <option value="universal">🌐 三端统一通用账户（手机+电脑+网页互通）</option>
+                <option value="mobile">📱 仅手机客户端密码</option>
+                <option value="desktop">💻 仅电脑客户端密码</option>
+                <option value="web">🕸 仅网页端密码</option>
+              </select>
+            </label>
+            <label class="m-field">
+              <span>账号 / 用户名</span>
+              <input id="me-user" type="text" placeholder="手机号、邮箱或用户名" spellcheck="false" />
+            </label>
+            <div class="m-field">
+              <div class="m-lbl-row" style="margin-bottom: 4px">
+                <span style="font-size: 12px; color: var(--muted)">密码（纯验证器可留空）</span>
+                <span id="me-pwd-strength" class="m-strength-pill" hidden></span>
+              </div>
+              <div style="display: flex; gap: 6px">
+                <input id="me-pwd" type="password" placeholder="输入或点右侧随机生成" style="flex: 1" />
+                <button type="button" class="m-btn ghost small" id="btn-me-eye">显示</button>
+                <button type="button" class="m-btn ghost small" id="btn-me-gen" title="生成高强度密码">🎲 生成</button>
+              </div>
+            </div>
+
+            <div class="m-subcard">
+              <div class="m-row-between" style="margin-bottom: 6px">
+                <span style="font-size: 12px; color: #9ecbff">📲 绑定本机已安装 App（打开自动提示填充）</span>
+                <button type="button" class="m-btn ghost small" id="btn-me-load-apps">读取应用</button>
+              </div>
+              <div style="display: flex; gap: 6px">
+                <select id="me-app-picker" style="flex: 1">
+                  <option value="">-- 点选手机应用自动填入包名 --</option>
+                </select>
+                <button type="button" class="m-btn ghost small" id="btn-me-bind-app">＋ 绑定</button>
+              </div>
+            </div>
+
+            <label class="m-field">
+              <span>关联规则（每行一条：网址 / androidapp://包名 / app://进程.exe）</span>
+              <textarea id="me-uris" rows="2" placeholder="androidapp://com.tencent.mm&#10;https://wx.qq.com" spellcheck="false"></textarea>
+            </label>
+            <label class="m-field">
+              <span>Authenticator 密钥（选填）</span>
+              <input id="me-totp" type="text" placeholder="Base32 或 otpauth://" spellcheck="false" />
+            </label>
+            <label class="m-check">
+              <input id="me-fav" type="checkbox" />
+              <span>设为星标收藏</span>
+            </label>
+            <label class="m-field">
+              <span>备注（选填）</span>
+              <textarea id="me-notes" rows="2" placeholder="安全问题、附加说明…"></textarea>
+            </label>
+
+            <button type="submit" class="m-btn primary" id="btn-me-save">加密保存到服务器</button>
+          </form>
+        </section>
+
+        <!-- Tab 4：版本更新、系统自动填充 & 自定义 AI 模型提供商管理 -->
+        <section id="tab-settings" class="m-page" hidden>
+          <div class="m-card" style="margin-bottom: 12px">
+            <div class="m-row-between" style="margin-bottom: 6px">
+              <h3 style="margin: 0; font-size: 15px">🔄 版本检查与一键更新</h3>
+              <span id="mu-cur-ver" class="m-ver-pill">v2.0.0</span>
+            </div>
+            <p class="m-muted" style="margin: 0 0 10px">支持直接填 GitHub 仓库（如 <code>user/repo</code>）或留空使用当前服务器 <code>/client-releases/latest.json</code>。</p>
+            <label class="m-field">
+              <span>更新源（GitHub 仓库 user/repo 或清单 URL，选填）</span>
+              <div style="display: flex; gap: 6px">
+                <input id="mu-manifest-url" type="text" placeholder="user/repo 或留空跟随服务器" spellcheck="false" style="flex: 1" />
+                <button type="button" class="m-btn ghost small" id="btn-mu-check">检查更新</button>
+              </div>
+            </label>
+            <p id="mu-info" class="m-pill-info" style="margin: 8px 0 0" hidden></p>
+            <div id="mu-progress-wrap" class="m-progress-wrap" hidden>
+              <div id="mu-progress-bar" class="m-progress-bar" style="width: 0%"></div>
+            </div>
+            <button type="button" class="m-btn primary" id="btn-mu-install" style="margin-top: 10px" hidden>⬇ 一键下载并安装更新</button>
+          </div>
+
+          <div class="m-card">
+            <h3 style="margin: 0 0 6px; font-size: 15px">📲 Android 系统级密码自动填充</h3>
+            <p class="m-muted" style="margin: 0 0 10px">开启后，打开手机 App 或浏览器登录框时会自动弹出「KeyNexus」候选条，登录新账号也能自动捕获保存。</p>
+            <button type="button" class="m-btn primary" id="btn-m-autofill-sys">前往系统设置启用 KeyNexus 自动填充</button>
+          </div>
+
+          <div class="m-card" style="margin-top: 12px">
+            <div class="m-row-between">
+              <h3 style="margin: 0; font-size: 15px">🤖 AI 模型提供商中心</h3>
+              <button type="button" class="m-btn ghost small" id="btn-mp-custom">＋ 自定义网关</button>
+            </div>
+            <p class="m-muted" style="margin: 4px 0 10px">API Key 经 Android 硬件级 Keystore 加密存储在本机，支持任意自定义接口。</p>
+
+            <label class="m-field">
+              <span>切换已保存提供商 / 套用内置模板</span>
+              <div style="display: flex; gap: 6px">
+                <select id="mp-list" style="flex: 1"></select>
+                <select id="mp-preset" style="width: 128px"></select>
+              </div>
+            </label>
+
+            <form id="mp-form" autocomplete="off">
+              <label class="m-field">
+                <span>提供商名称 *</span>
+                <input id="mp-name" type="text" required />
+              </label>
+              <label class="m-field">
+                <span>接口协议</span>
+                <select id="mp-proto">
+                  <option value="openai-compatible">OpenAI 兼容（DeepSeek/千问/中转站/Ollama）</option>
+                  <option value="gemini">Google Gemini 原生协议</option>
+                  <option value="anthropic">Anthropic Claude 原生协议</option>
+                </select>
+              </label>
+              <label class="m-field">
+                <span>Base URL *</span>
+                <input id="mp-url" type="url" placeholder="https://api.deepseek.com/v1" spellcheck="false" required />
+              </label>
+              <label class="m-check">
+                <input id="mp-exact" type="checkbox" />
+                <span>上方地址已是完整精确端点（不自动追加后缀）</span>
+              </label>
+              <label class="m-field">
+                <span>API Key</span>
+                <input id="mp-key" type="password" placeholder="sk-..." spellcheck="false" />
+              </label>
+              <div class="m-grid-2">
+                <label class="m-field">
+                  <span>文本解析模型 *</span>
+                  <input id="mp-text-model" type="text" placeholder="deepseek-chat" required />
+                </label>
+                <label class="m-field">
+                  <span>视觉/拍照识图模型</span>
+                  <input id="mp-vision-model" type="text" placeholder="qwen-vl-max" />
+                </label>
+              </div>
+              <label class="m-field">
+                <span>自定义请求头 JSON（选填）</span>
+                <input id="mp-headers" type="text" placeholder='{"X-Custom":"1"}' spellcheck="false" />
+              </label>
+              <div class="m-grid-2">
+                <button type="submit" class="m-btn primary">保存并启用</button>
+                <button type="button" class="m-btn ghost" id="btn-mp-test">⚡ 测试连通</button>
+              </div>
+              <p id="mp-msg" class="m-muted" style="margin-top: 8px"></p>
+            </form>
+          </div>
+        </section>
+      </main>
+
+      <!-- 底部五栏导航（全矢量线性图标） -->
+      <nav class="m-tabbar">
+        <button type="button" class="m-tab active" data-tab="vault">
+          <svg class="tb-svg" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2.5l8 3.6v6c0 5.1-3.4 9.3-8 10.9-4.6-1.6-8-5.8-8-10.9v-6l8-3.6z" />
+            <circle cx="12" cy="11" r="2" />
+            <path d="M12 13v3.5" />
+          </svg>
+          <span>密码库</span>
+        </button>
+        <button type="button" class="m-tab" data-tab="auth">
+          <svg class="tb-svg" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M12 7.5V12l3 2" />
+            <path d="M16.5 3.5l2.5 2.5" />
+          </svg>
+          <span>验证器</span>
+        </button>
+        <button type="button" class="m-tab" data-tab="ai">
+          <svg class="tb-svg" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3l2.2 5.3L19.5 10.5l-5.3 2.2L12 18l-2.2-5.3L4.5 10.5l5.3-2.2L12 3z" />
+            <path d="M19 16l.9 2.1L22 19l-2.1.9L19 22l-.9-2.1L16 19l2.1-.9L19 16z" />
+          </svg>
+          <span>AI 识密</span>
+        </button>
+        <button type="button" class="m-tab" data-tab="edit">
+          <svg class="tb-svg" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3.5" y="3.5" width="17" height="17" rx="4.5" />
+            <path d="M12 8v8M8 12h8" />
+          </svg>
+          <span>记密码</span>
+        </button>
+        <button type="button" class="m-tab" data-tab="settings">
+          <span class="m-tab-ic-wrap">
+            <svg class="tb-svg" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3.2" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.08a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.08a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.08a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+            <i id="m-tab-settings-dot" class="m-tab-dot" hidden></i>
+          </span>
+          <span>设置</span>
+        </button>
+      </nav>
+    </section>
+
+    <div id="m-toast" class="m-toast" hidden></div>
+    <script src="mobile.js" type="module"></script>
+  </body>
+</html>

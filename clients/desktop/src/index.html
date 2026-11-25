@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KeyNexus</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- ==================== 1. 登录与快捷解锁屏 ==================== -->
+    <section id="auth-screen" class="auth-screen">
+      <div class="auth-ambient"></div>
+      <div class="auth-card">
+        <div class="auth-brand">
+          <div class="brand-mark">
+            <img src="brand-icon.png" alt="KeyNexus" class="brand-img" />
+          </div>
+          <div>
+            <h1><span class="brand-en-accent">KeyNexus</span></h1>
+            <p>零知识端到端加密 · 网页 / 电脑 / 手机四态协同</p>
+          </div>
+        </div>
+
+        <!-- 短 PIN 秒开 -->
+        <form id="pin-unlock-form" class="auth-form" hidden autocomplete="off">
+          <div class="pin-account-pill" id="pin-account-hint"></div>
+          <label class="field">
+            <span>输入本机快捷 PIN 秒开密码库</span>
+            <input id="pin-input" type="password" inputmode="numeric" placeholder="••••" maxlength="16" class="pin-big-input" />
+          </label>
+          <button type="submit" class="primary full" id="btn-pin-unlock">立即解锁</button>
+          <button type="button" class="ghost full" id="btn-switch-master" style="margin-top: 8px">改用主密码重新登录</button>
+          <p class="error" id="pin-error" hidden></p>
+        </form>
+
+        <!-- 主密码登录 -->
+        <form id="master-unlock-form" class="auth-form" autocomplete="off">
+          <label class="field">
+            <span>KeyNexus 服务器地址</span>
+            <input id="auth-server" type="url" placeholder="https://vault.example.com 或 https://100.x.x.x:8443" spellcheck="false" required />
+          </label>
+          <div class="grid-two">
+            <label class="field">
+              <span>账号邮箱</span>
+              <input id="auth-email" type="email" placeholder="you@example.com" spellcheck="false" required />
+            </label>
+            <label class="field">
+              <span>本地快捷 PIN（选填）</span>
+              <input id="auth-setup-pin" type="password" inputmode="numeric" placeholder="4~8位，下次秒开" maxlength="16" />
+            </label>
+          </div>
+          <label class="field">
+            <span>主密码</span>
+            <input id="auth-password" type="password" placeholder="仅在本机内存派生密钥，永不上传" required />
+          </label>
+          <label class="check-row">
+            <input id="auth-insecure-tls" type="checkbox" />
+            <span>信任局域网 / Tailscale 自签 HTTPS 证书</span>
+          </label>
+
+          <div id="auth-2fa-box" class="twofactor-box" hidden>
+            <div class="grid-two">
+              <label class="field">
+                <span>验证方式</span>
+                <select id="auth-2fa-provider"></select>
+              </label>
+              <label class="field">
+                <span>两步验证码</span>
+                <div class="inline-row">
+                  <input id="auth-2fa-code" type="text" placeholder="6 位动态码" />
+                  <button type="button" id="btn-auth-email-otp" class="ghost small" hidden>发邮件</button>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <button type="submit" class="primary full" id="btn-master-unlock">解锁并开启桌面守护</button>
+          <p class="error" id="master-error" hidden></p>
+        </form>
+      </div>
+    </section>
+
+    <!-- ==================== 2. 三栏主工作台 ==================== -->
+    <section id="workspace" class="workspace" hidden>
+      <!-- 左栏：导航与工作流入口 -->
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <div class="brand-mark sm">
+            <img src="brand-icon.png" alt="KeyNexus" class="brand-img" />
+          </div>
+          <div class="brand-txt">
+            <b>KeyNexus</b>
+            <span id="sidebar-user-email">已加密连接</span>
+          </div>
+          <span class="watch-pill" id="watch-indicator" title="Win32 窗口监听状态">● 守护中</span>
+        </div>
+
+        <div class="sidebar-cta-group">
+          <button type="button" class="primary full icon-cta" id="btn-new-item">
+            <span>＋ 提交新密码</span>
+            <kbd>Ctrl+N</kbd>
+          </button>
+          <button type="button" class="ai-cta full" id="btn-open-importer">
+            <span>✨ 文件 / 截图 AI 导密</span>
+          </button>
+        </div>
+
+        <div class="sidebar-section-title">按适用终端筛选</div>
+        <nav class="nav-group">
+          <button type="button" class="nav-item active" data-filter="all">
+            <span class="nav-lbl"><i class="dot-ic all"></i>全部密码</span><em id="cnt-all">0</em>
+          </button>
+          <button type="button" class="nav-item" data-filter="universal">
+            <span class="nav-lbl"><i class="dot-ic uni"></i>三端通用账户</span><em id="cnt-universal">0</em>
+          </button>
+          <button type="button" class="nav-item" data-filter="desktop">
+            <span class="nav-lbl"><i class="dot-ic desk"></i>电脑端专属</span><em id="cnt-desktop">0</em>
+          </button>
+          <button type="button" class="nav-item" data-filter="web">
+            <span class="nav-lbl"><i class="dot-ic web"></i>网页端专属</span><em id="cnt-web">0</em>
+          </button>
+          <button type="button" class="nav-item" data-filter="mobile">
+            <span class="nav-lbl"><i class="dot-ic mob"></i>手机端专属</span><em id="cnt-mobile">0</em>
+          </button>
+          <button type="button" class="nav-item" data-filter="fav">
+            <span class="nav-lbl"><i class="dot-ic fav"></i>星标收藏</span><em id="cnt-fav">0</em>
+          </button>
+          <button type="button" class="nav-item" data-filter="totp">
+            <span class="nav-lbl"><i class="dot-ic totp"></i>Authenticator 验证器</span><em id="cnt-totp">0</em>
+          </button>
+        </nav>
+
+        <div class="sidebar-section-title">文件夹分类</div>
+        <nav class="nav-group folders-nav" id="folders-nav"></nav>
+
+        <div class="sidebar-footer">
+          <button type="button" class="tool-btn" id="btn-open-providers" title="配置与自定义 AI 模型提供商">🤖 模型源</button>
+          <button type="button" class="tool-btn" id="btn-sync-now" title="立即与服务器同步">⟳ 同步</button>
+          <button type="button" class="tool-btn" id="btn-open-settings" title="PIN 与桌面监听设置">⚙ 设置</button>
+          <button type="button" class="tool-btn lock" id="btn-lock-vault" title="立即锁定密码库">🔒 锁定</button>
+        </div>
+      </aside>
+
+      <!-- 中栏：快速检索 + 悬停一键复制/键入列表 -->
+      <section class="list-pane">
+        <div class="list-header">
+          <div class="search-box">
+            <svg class="search-ic" viewBox="0 0 20 20" width="14" height="14">
+              <path d="M8.5 3a5.5 5.5 0 104.38 8.82l3.65 3.65a.75.75 0 101.06-1.06l-3.65-3.65A5.5 5.5 0 008.5 3zm-4 5.5a4 4 0 118 0 4 4 0 01-8 0z" fill="currentColor" />
+            </svg>
+            <input id="vault-search" type="search" placeholder="搜索名称、账号、域名、.exe…" spellcheck="false" />
+            <kbd>Ctrl+F</kbd>
+          </div>
+          <div class="list-submeta">
+            <span id="list-filter-title">全部密码</span>
+            <span id="list-result-count" class="muted">0 项</span>
+          </div>
+        </div>
+
+        <ul id="vault-list" class="vault-list"></ul>
+
+        <div id="vault-empty" class="empty-pane" hidden>
+          <div class="empty-icon">🔐</div>
+          <p>当前分类下还没有密码记录</p>
+          <div class="inline-row" style="justify-content: center">
+            <button type="button" class="ghost small" id="btn-empty-create">＋ 手动录入</button>
+            <button type="button" class="ghost small" id="btn-empty-ai">✨ 文件 AI 导入</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 右栏：主画布 -->
+      <main class="detail-pane">
+        <!-- 欢迎仪表盘（空状态不再单调，直观展示四端概况与快捷卡片） -->
+        <div id="pane-welcome" class="welcome-dashboard">
+          <div class="dash-hero">
+            <h2>欢迎回来，密码守护已就绪</h2>
+            <p>全部敏感凭据均以 AES-256-CBC + HMAC-SHA256 零知识密文同步，点击左侧条目查看或直接使用下方快捷入口。</p>
+          </div>
+
+          <div class="bento-stats">
+            <div class="stat-tile" data-jump="universal">
+              <span class="st-tag uni">🌐 三端通用</span>
+              <strong id="dash-cnt-uni">0</strong>
+              <small>网页 · 电脑 · 手机同号互通</small>
+            </div>
+            <div class="stat-tile" data-jump="desktop">
+              <span class="st-tag desk">💻 电脑端专属</span>
+              <strong id="dash-cnt-desk">0</strong>
+              <small>打开 .exe 自动右上角提示</small>
+            </div>
+            <div class="stat-tile" data-jump="web">
+              <span class="st-tag web">🕸 网页端专属</span>
+              <strong id="dash-cnt-web">0</strong>
+              <small>浏览器插件自动填表抓密</small>
+            </div>
+            <div class="stat-tile" data-jump="mobile">
+              <span class="st-tag mob">📱 手机端专属</span>
+              <strong id="dash-cnt-mob">0</strong>
+              <small>Android 系统级自动填充</small>
+            </div>
+          </div>
+
+          <div class="shortcut-cards">
+            <div class="sc-card">
+              <div class="sc-keys"><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>P</kbd></div>
+              <div>
+                <b>识别当前窗口查密码</b>
+                <p>在任意软件内按下，右上角立即浮现不抢焦点的密码提示卡，一键模拟键入。</p>
+              </div>
+            </div>
+            <div class="sc-card">
+              <div class="sc-keys"><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>N</kbd></div>
+              <div>
+                <b>为当前软件随手记密码</b>
+                <p>自动抓取刚才前台软件的 `.exe` 进程名与窗口标题，填完密码回车即绑定。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 条目详情页（精致分组卡片 + 彩色字符着色 + SVG 动态码进度环） -->
+        <div id="pane-detail" class="content-shell" hidden>
+          <div class="detail-hero-card">
+            <div class="hero-left">
+              <div class="squircle-avatar lg" id="d-avatar">PW</div>
+              <div class="hero-titles">
+                <div class="hero-title-row">
+                  <h2 id="d-name"></h2>
+                  <button type="button" class="fav-toggle" id="btn-d-fav" title="收藏 / 取消收藏">☆</button>
+                </div>
+                <div id="d-badges" class="badges"></div>
+              </div>
+            </div>
+            <div class="head-actions">
+              <button type="button" class="ghost small" id="btn-d-edit">✎ 编辑</button>
+              <button type="button" class="ghost small danger" id="btn-d-delete">删除</button>
+            </div>
+          </div>
+
+          <!-- 主快捷操作栏 -->
+          <div class="quick-action-strip">
+            <button type="button" class="primary" id="btn-d-autotype">⌨ 键入密码到上一窗口</button>
+            <button type="button" class="ghost" id="btn-d-autotype-both">键入「账号 + Tab + 密码」</button>
+            <button type="button" class="ghost" data-copy="password">📋 安全复制密码</button>
+          </div>
+
+          <!-- 核心凭据分组 -->
+          <div class="field-group-card">
+            <div class="fg-row">
+              <div class="fg-meta">
+                <span class="fg-label">账号 / 用户名</span>
+                <code id="d-username" class="fg-value"></code>
+              </div>
+              <button type="button" class="ghost small" data-copy="username">复制账号</button>
+            </div>
+
+            <div class="fg-row">
+              <div class="fg-meta">
+                <div class="fg-label-line">
+                  <span class="fg-label">登录密码</span>
+                  <span id="d-strength-pill" class="strength-pill"></span>
+                </div>
+                <div id="d-password" class="fg-value pwd-masked">••••••••••••••</div>
+              </div>
+              <div class="inline-row">
+                <button type="button" class="ghost small" id="btn-d-reveal">显示</button>
+                <button type="button" class="ghost small" data-copy="password">复制密码</button>
+              </div>
+            </div>
+
+            <div class="fg-row" id="d-totp-row" hidden>
+              <div class="fg-meta">
+                <span class="fg-label">Authenticator 动态码</span>
+                <div class="totp-display-line">
+                  <code id="d-totp" class="totp-code"></code>
+                  <div class="totp-ring-wrap">
+                    <svg class="totp-ring" viewBox="0 0 24 24" width="20" height="20">
+                      <circle class="ring-bg" cx="12" cy="12" r="9" />
+                      <circle class="ring-fg" id="d-totp-circle" cx="12" cy="12" r="9" stroke-dasharray="56.55" stroke-dashoffset="0" />
+                    </svg>
+                    <span id="d-totp-left" class="muted"></span>
+                  </div>
+                </div>
+              </div>
+              <button type="button" class="ghost small" data-copy="totp">复制验证码</button>
+            </div>
+          </div>
+
+          <!-- 关联网址与终端规则分组 -->
+          <div class="field-group-card" id="d-uris-row" hidden>
+            <div class="fg-section-head">关联终端与自动触发规则</div>
+            <div id="d-uris" class="uri-chip-list"></div>
+          </div>
+
+          <!-- 备注分组 -->
+          <div class="field-group-card" id="d-notes-row" hidden>
+            <div class="fg-section-head">安全备注</div>
+            <pre id="d-notes" class="notes-pre"></pre>
+          </div>
+        </div>
+
+        <!-- Authenticator 独立动态码竖栏中枢 -->
+        <div id="pane-authenticator" class="content-shell" hidden>
+          <div class="detail-hero-card da-header">
+            <div>
+              <h2 style="margin: 0; font-size: 18px">Authenticator 动态码中枢</h2>
+              <p class="muted" style="margin: 4px 0 0">所有含两步验证密钥的凭据集中实时刷新，支持一键安全复制或直接键入</p>
+            </div>
+            <button type="button" class="primary" id="btn-da-toggle-add">＋ 添加验证器</button>
+          </div>
+
+          <form id="da-add-form" class="content-card da-add-form" hidden autocomplete="off">
+            <div class="card-head">
+              <div>
+                <h2 style="font-size: 15.5px">新增 Authenticator 验证器</h2>
+                <p class="muted" style="margin: 2px 0 0">支持粘贴 Base32 密钥或完整 otpauth:// URI 自动识别名称与账号</p>
+              </div>
+              <button type="button" class="ghost small" id="btn-da-cancel">收起</button>
+            </div>
+            <label class="field">
+              <span>Authenticator 密钥或 otpauth:// *</span>
+              <input id="da-secret" type="text" placeholder="粘贴 Base32 密钥或 otpauth://totp/..." spellcheck="false" required />
+            </label>
+            <div class="grid-two">
+              <label class="field">
+                <span>服务名称 *</span>
+                <input id="da-name" type="text" placeholder="如：GitHub / Google / 微信" required />
+              </label>
+              <label class="field">
+                <span>账号 / 备注（选填）</span>
+                <input id="da-user" type="text" placeholder="邮箱、手机号或用户名" spellcheck="false" />
+              </label>
+            </div>
+            <div class="detail-cta" style="margin-top: 8px">
+              <button type="submit" class="primary" id="btn-da-save">🔒 本地零知识加密并保存</button>
+            </div>
+            <p id="da-add-err" class="error" hidden></p>
+          </form>
+
+          <div id="da-list" class="da-list"></div>
+
+          <div id="da-empty" class="empty-pane" hidden>
+            <div class="empty-icon">⏱</div>
+            <p>暂无 Authenticator 验证器记录</p>
+            <button type="button" class="ghost small" id="btn-da-empty-add">＋ 添加首个验证器</button>
+          </div>
+        </div>
+
+        <!-- 新建 / 编辑密码表单 -->
+        <form id="pane-editor" class="content-card" hidden autocomplete="off">
+          <div class="card-head">
+            <div>
+              <h2 id="ed-heading">提交新密码</h2>
+              <p class="muted" style="margin: 2px 0 0">在本地完成端到端加密后同步至服务器</p>
+            </div>
+            <button type="button" class="ghost small" id="btn-ed-cancel">取消</button>
+          </div>
+
+          <div class="grid-two">
+            <label class="field">
+              <span>条目名称 *</span>
+              <input id="f-name" type="text" placeholder="如：微信 / Navicat / GitHub" required />
+            </label>
+            <label class="field">
+              <span>适用端口范围（服务端四态分类）</span>
+              <select id="f-scope">
+                <option value="universal">🌐 三端统一通用账户（网页+电脑+手机互通）</option>
+                <option value="desktop">💻 仅电脑客户端密码</option>
+                <option value="web">🕸 仅网页端密码</option>
+                <option value="mobile">📱 仅手机端密码</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="grid-two">
+            <label class="field">
+              <span>账号 / 用户名</span>
+              <input id="f-username" type="text" placeholder="邮箱、手机号或用户名" spellcheck="false" />
+            </label>
+            <div class="field">
+              <div class="fg-label-line" style="margin-bottom: 4px">
+                <span style="font-size: 11px; color: var(--muted)">密码（纯验证器可留空）</span>
+                <span id="f-pwd-strength" class="strength-inline"></span>
+              </div>
+              <div class="inline-row">
+                <input id="f-password" type="password" placeholder="输入或点右侧生成强密码" />
+                <button type="button" class="ghost small" id="btn-f-eye">显示</button>
+                <button type="button" class="ghost small" id="btn-f-gen" title="生成 20 位随机高强度密码">🎲 生成</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="app-picker-box">
+            <div class="picker-bar">
+              <span>🖥 快速绑定电脑程序（打开该软件时右上角自动给密码提示）</span>
+              <button type="button" class="ghost small" id="btn-refresh-apps">↻ 刷新运行中程序</button>
+            </div>
+            <div class="inline-row">
+              <select id="running-apps-select">
+                <option value="">-- 点选当前正在运行的 Windows 程序 --</option>
+              </select>
+              <input id="app-title-filter" type="text" placeholder="可选：仅窗口标题含关键词时提示（如 *登录*）" />
+              <button type="button" class="ghost small" id="btn-add-app-rule">＋ 添加规则</button>
+            </div>
+          </div>
+
+          <label class="field">
+            <span>匹配规则列表（每行一条：网址 `https://...` / 电脑程序 `app://进程.exe` / 手机应用 `androidapp://包名`）</span>
+            <textarea id="f-uris" rows="3" placeholder="https://wx.qq.com&#10;app://WeChat.exe&#10;androidapp://com.tencent.mm" spellcheck="false"></textarea>
+          </label>
+
+          <div class="grid-two">
+            <label class="field">
+              <span>Authenticator 密钥（选填）</span>
+              <input id="f-totp" type="text" placeholder="Base32 密钥或 otpauth:// URI" spellcheck="false" />
+            </label>
+            <label class="field">
+              <span>电脑软件启动提示策略</span>
+              <select id="f-trigger">
+                <option value="launch">程序每次新启动时提示一次（推荐，切窗口不打扰）</option>
+                <option value="always">每次切到匹配窗口时都提示</option>
+                <option value="hotkey">静默，仅按 Ctrl+Alt+P 时提示</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="grid-two">
+            <label class="field">
+              <span>所属文件夹</span>
+              <select id="f-folder"><option value="">无文件夹</option></select>
+            </label>
+            <label class="check-row" style="padding-top: 24px">
+              <input id="f-favorite" type="checkbox" />
+              <span>设为星标收藏</span>
+            </label>
+          </div>
+
+          <label class="field">
+            <span>备注（选填）</span>
+            <textarea id="f-notes" rows="2" placeholder="备注说明、安全问题、端口号等…"></textarea>
+          </label>
+
+          <div class="detail-cta">
+            <button type="submit" class="primary" id="btn-f-submit">加密保存到 PWDSV 服务器</button>
+          </div>
+          <p class="error" id="ed-error" hidden></p>
+        </form>
+
+        <!-- 多格式文件识别 + AI 智能解析导入台（三步向导式排版） -->
+        <div id="pane-importer" class="content-card wide-card" hidden>
+          <div class="card-head">
+            <div>
+              <h2>✨ 多格式文件识别与 AI 密码导入工作台</h2>
+              <p class="muted" style="margin: 3px 0 0">原始文件仅在本机内存中读取并直连你选的模型 API，核对无误后本地零知识加密入库</p>
+            </div>
+            <button type="button" class="ghost small" id="btn-imp-manage-providers">🤖 切换 / 自定义模型提供商</button>
+          </div>
+
+          <div class="stepper-bar">
+            <div class="step-pill active"><b>1</b> 选择文档 / 表格 / 粘贴截图</div>
+            <span class="step-arrow">→</span>
+            <div class="step-pill"><b>2</b> 本机直连 AI 归一提取</div>
+            <span class="step-arrow">→</span>
+            <div class="step-pill"><b>3</b> 核对端口分类并加密上云</div>
+          </div>
+
+          <div class="importer-toolbar">
+            <label class="field" style="flex: 1; margin: 0">
+              <span>当前启用的 AI 模型提供商</span>
+              <select id="imp-provider-select"></select>
+            </label>
+            <label class="check-row" style="margin: 18px 0 0">
+              <input id="imp-force-ai" type="checkbox" />
+              <span>标准表格也强制调用 AI 深度推断四态分类</span>
+            </label>
+          </div>
+
+          <div class="dropzone" id="imp-dropzone">
+            <div class="format-badges">
+              <span>📊 Excel .xlsx</span>
+              <span>📄 Word .docx</span>
+              <span>📑 PDF 文档</span>
+              <span>📋 CSV / JSON</span>
+              <span>📝 TXT / MD</span>
+              <span>🖼 密码截图 (Ctrl+V)</span>
+            </div>
+            <p class="drop-title">将任意密码文件拖拽到此处，或直接按 <kbd>Ctrl</kbd> + <kbd>V</kbd> 粘贴截图</p>
+            <div class="inline-row" style="justify-content: center; margin-top: 12px">
+              <button type="button" class="primary" id="btn-imp-pick-file">📂 选择本地文件开始识别</button>
+              <button type="button" class="ghost" id="btn-imp-toggle-text">📝 粘贴杂乱文字解析</button>
+            </div>
+            <input id="imp-file-input" type="file" accept=".csv,.tsv,.xlsx,.docx,.pdf,.txt,.md,.json,image/*" hidden />
+          </div>
+
+          <div id="imp-raw-text-box" style="margin-top: 10px" hidden>
+            <textarea id="imp-raw-text" rows="4" placeholder="粘贴任意格式的账号密码文字记录，AI 会自动提取并划分适用端口…"></textarea>
+            <button type="button" class="primary" id="btn-imp-parse-text" style="margin-top: 6px">开始提取上方文本</button>
+          </div>
+
+          <p id="imp-status" class="site-status" hidden></p>
+          <p id="imp-error" class="error" hidden></p>
+
+          <div id="imp-preview-wrap" hidden style="margin-top: 16px">
+            <div class="picker-bar">
+              <b id="imp-preview-summary">识别结果核对表（可直接点击单元格修改）</b>
+              <select id="imp-batch-scope" class="small-select">
+                <option value="">批量设置勾选行的适用端口…</option>
+                <option value="universal">全部设为：🌐 三端通用</option>
+                <option value="web">全部设为：🕸 网页端</option>
+                <option value="desktop">全部设为：💻 电脑端</option>
+                <option value="mobile">全部设为：📱 手机端</option>
+              </select>
+            </div>
+
+            <div class="preview-table-scroll">
+              <table class="preview-table">
+                <thead>
+                  <tr>
+                    <th style="width: 34px"><input type="checkbox" id="imp-check-all" checked /></th>
+                    <th>名称</th>
+                    <th>账号 / 用户名</th>
+                    <th>密码</th>
+                    <th>匹配 URI 规则</th>
+                    <th style="width: 120px">适用端口</th>
+                    <th style="width: 78px">比对状态</th>
+                  </tr>
+                </thead>
+                <tbody id="imp-preview-tbody"></tbody>
+              </table>
+            </div>
+
+            <div class="detail-cta">
+              <button type="button" class="primary" id="btn-imp-commit">🔒 本地零知识加密并批量上传到服务器</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI 模型提供商管理中心 -->
+        <div id="pane-providers" class="content-card wide-card" hidden>
+          <div class="card-head">
+            <div>
+              <h2>🤖 AI 模型提供商配置中心</h2>
+              <p class="muted" style="margin: 3px 0 0">API Key 由 Windows DPAPI 绑定本机系统账户加密存储，支持内置预设与任意自定义网关</p>
+            </div>
+            <button type="button" class="ghost small" id="btn-prov-back">← 返回导密工作台</button>
+          </div>
+
+          <div class="providers-split">
+            <div class="prov-left">
+              <div class="picker-bar">
+                <span>已保存的模型源</span>
+                <button type="button" class="ghost small" id="btn-prov-new-custom">＋ 自定义提供商</button>
+              </div>
+              <ul id="prov-list" class="vault-list prov-ul"></ul>
+              <div class="field" style="margin-top: 10px">
+                <span>从内置主流厂商模板添加：</span>
+                <div class="inline-row">
+                  <select id="prov-preset-select"></select>
+                  <button type="button" class="ghost small" id="btn-prov-add-preset">套用模板</button>
+                </div>
+              </div>
+            </div>
+
+            <form id="prov-form" class="prov-right" autocomplete="off">
+              <div class="grid-two">
+                <label class="field">
+                  <span>提供商显示名称 *</span>
+                  <input id="p-name" type="text" placeholder="如：我的自建 NewAPI / DeepSeek" required />
+                </label>
+                <label class="field">
+                  <span>接口协议类型 *</span>
+                  <select id="p-protocol">
+                    <option value="openai-compatible">OpenAI 兼容 (/chat/completions)</option>
+                    <option value="gemini">Google Gemini 原生协议</option>
+                    <option value="anthropic">Anthropic Claude 原生协议</option>
+                  </select>
+                </label>
+              </div>
+              <label class="field">
+                <span>API Base URL *</span>
+                <input id="p-baseurl" type="url" placeholder="https://api.deepseek.com/v1 或自定义反代地址" spellcheck="false" required />
+              </label>
+              <label class="check-row">
+                <input id="p-exact" type="checkbox" />
+                <span>上方地址已是完整精确端点（不再自动追加 `/chat/completions` 等路径）</span>
+              </label>
+              <label class="field">
+                <span>API Key（本地 Ollama 等免鉴权服务可留空）</span>
+                <input id="p-apikey" type="password" placeholder="sk-..." spellcheck="false" />
+              </label>
+              <div class="grid-two">
+                <label class="field">
+                  <span>文本解析模型 ID *</span>
+                  <input id="p-text-model" type="text" placeholder="如 deepseek-chat / qwen-plus" required />
+                </label>
+                <label class="field">
+                  <span>图片视觉模型 ID（识图/扫描件必填）</span>
+                  <input id="p-vision-model" type="text" placeholder="如 qwen-vl-max / gpt-4o-mini" />
+                </label>
+              </div>
+              <label class="field">
+                <span>自定义请求头 JSON（选填，供私有网关鉴权）</span>
+                <input id="p-headers" type="text" placeholder='{"X-Custom-Token":"xxx"}' spellcheck="false" />
+              </label>
+              <div class="detail-cta">
+                <button type="submit" class="primary">保存并设为当前模型源</button>
+                <button type="button" class="ghost" id="btn-prov-test">⚡ 测试连通性</button>
+                <button type="button" class="ghost danger" id="btn-prov-delete">删除</button>
+              </div>
+              <p id="prov-msg" class="muted" style="margin-top: 8px"></p>
+            </form>
+          </div>
+        </div>
+
+        <!-- 设置页 -->
+        <div id="pane-settings" class="content-card" hidden>
+          <div class="card-head">
+            <div class="inline-row">
+              <h2 style="margin: 0">⚙ 桌面守护与安全设置</h2>
+              <span id="st-cur-ver" class="badge universal">v2.0.0</span>
+            </div>
+            <button type="button" class="ghost small" id="btn-st-close">返回</button>
+          </div>
+
+          <h3 style="margin: 0 0 6px; font-size: 14px">🔄 软件版本与一键更新</h3>
+          <p class="muted" style="margin: 0 0 8px">支持填 GitHub 仓库（如 <code>user/repo</code>）直接拉取 GitHub Releases，或留空跟随服务器 <code>/client-releases/latest.json</code>。</p>
+          <div class="inline-row">
+            <input id="st-update-url" type="text" placeholder="填 GitHub 仓库（如 user/repo）或 latest.json 地址（留空跟随服务器）" spellcheck="false" />
+            <button type="button" class="ghost" id="btn-st-check-update">检查更新</button>
+            <button type="button" class="primary" id="btn-st-apply-update" hidden>⬇ 一键更新</button>
+          </div>
+          <p id="st-update-status" class="site-status" style="margin-top: 8px" hidden></p>
+
+          <hr class="sep" />
+
+          <label class="check-row">
+            <input id="st-watch-enabled" type="checkbox" />
+            <span>开启桌面应用启动监听与右上角无焦点密码提示卡（仅匹配「电脑端」与「三端通用」记录）</span>
+          </label>
+
+          <div class="grid-two" style="margin-top: 12px">
+            <label class="field">
+              <span>空闲自动锁定时间（分钟，0 = 不自动锁）</span>
+              <input id="st-lock-mins" type="number" min="0" max="1440" />
+            </label>
+            <label class="field">
+              <span>安全复制后自动清空剪贴板（秒）</span>
+              <input id="st-clip-sec" type="number" min="5" max="300" />
+            </label>
+          </div>
+
+          <hr class="sep" />
+          <h3 style="margin: 0 0 6px; font-size: 14px">本机快捷 PIN（PBKDF2 + AES-256-GCM + Windows DPAPI）</h3>
+          <p class="muted" id="st-pin-status"></p>
+          <div class="inline-row">
+            <input id="st-new-pin" type="password" inputmode="numeric" placeholder="输入新的 4 ~ 12 位快捷 PIN" maxlength="16" />
+            <button type="button" class="ghost" id="btn-st-save-pin">保存新 PIN</button>
+            <button type="button" class="ghost danger" id="btn-st-clear-pin">清除 PIN</button>
+          </div>
+
+          <div class="detail-cta">
+            <button type="button" class="primary" id="btn-st-save">保存偏好设置</button>
+          </div>
+        </div>
+      </main>
+    </section>
+
+    <footer id="toast-bar" class="toast-bar" hidden></footer>
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

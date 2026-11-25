@@ -1,0 +1,25 @@
+# 公网域名模式：Caddy 自动申请并续期 Let's Encrypt / ZeroSSL 证书
+{$CADDY_HOST} {
+    encode zstd gzip
+
+    header {
+        Strict-Transport-Security "max-age=31536000;"
+        X-Content-Type-Options "nosniff"
+        -Server
+    }
+
+    # 四端更新清单与安装包静态分发（无需重编服务端也可直接挂载）
+    handle_path /client-releases/* {
+        root * /srv/client-releases
+        header Access-Control-Allow-Origin "*"
+        header Cache-Control "no-store"
+        file_server
+    }
+
+    # 统一反向代理 HTTP API、Web 密码库与 /notifications/hub WebSocket 实时推送
+    handle {
+        reverse_proxy pwdsv:80 {
+            header_up X-Real-IP {remote_host}
+        }
+    }
+}

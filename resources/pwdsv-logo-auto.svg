@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="80" viewBox="0 0 360 80" role="img" aria-label="PWDSV">
+  <style>
+    .wordmark { fill: #0b4f8a; }
+    @media (prefers-color-scheme: dark) {
+      .wordmark { fill: #ffffff; }
+    }
+  </style>
+
+  <defs>
+    <linearGradient id="bga" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b4f8a"/>
+      <stop offset="1" stop-color="#042a52"/>
+    </linearGradient>
+  </defs>
+
+  <!-- icon -->
+  <rect x="4" y="8" width="64" height="64" rx="14" fill="url(#bga)"/>
+  <path d="M36 18 L55 21 L55 38 L36 58 L17 38 L17 21 Z" fill="#ffffff"/>
+  <circle cx="36" cy="35" r="6" fill="#0b4f8a"/>
+  <path d="M33.4 38.5 L38.6 38.5 L40.4 50 L31.6 50 Z" fill="#0b4f8a"/>
+
+  <!-- wordmark, adapts to the viewer's colour scheme -->
+  <text class="wordmark" x="84" y="54"
+        font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif"
+        font-size="40" font-weight="700" letter-spacing="3">PWDSV</text>
+</svg>

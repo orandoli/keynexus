@@ -1,0 +1,14 @@
+https://localhost:8443 {
+	tls internal
+
+	handle_path /client-releases/* {
+		root * /srv/client-releases
+		header Access-Control-Allow-Origin "*"
+		header Cache-Control "no-store"
+		file_server
+	}
+
+	handle {
+		reverse_proxy pwdsv:80
+	}
+}

@@ -1,0 +1,25 @@
+PWDSV
+Copyright (C) 2026 your-name <you@example.com>
+
+This program is a modified version of Vaultwarden
+(https://github.com/dani-garcia/vaultwarden),
+Copyright (C) 2018-2026 Daniel García and the Vaultwarden contributors.
+
+Modifications made in this repository:
+  - Renamed the crate, binary and product name to `pwdsv` / PWDSV.
+  - Replaced the brand assets (logo, icon, favicon) and the SCSS theme file names.
+  - Rewrote the user facing strings in the templates, admin panel and startup banner.
+  - Reworked the container build to take the web-vault image from a build argument.
+  - Replaced the documentation and the security policy with our own.
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, version 3 of the License.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+
+The full license text is in LICENSE.txt. If you run a modified version of this
+program on a network server, the AGPL requires you to offer the corresponding
+source code to its users.

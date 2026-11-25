@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 外层深海流光立体盾牌 -->
+    <path android:pathData="M54,22 L80.5,32.4 V53.2 C80.5,69.8 69.2,82.4 54,87.6 C38.8,82.4 27.5,69.8 27.5,53.2 V32.4 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="29"
+                android:startY="23"
+                android:endX="79"
+                android:endY="86"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FF67E8F9" />
+                <item android:offset="0.45" android:color="#FF1E88E5" />
+                <item android:offset="1.0" android:color="#FF0A3D91" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- 盾牌左半切面高光 -->
+    <path
+        android:fillColor="#2EFFFFFF"
+        android:pathData="M54,22 V87.6 C38.8,82.4 27.5,69.8 27.5,53.2 V32.4 Z" />
+
+    <!-- 内层暗海蓝宝石嵌板 -->
+    <path android:pathData="M54,28.4 L74.6,36.5 V53 C74.6,66.1 65.8,76.1 54,80.4 C42.2,76.1 33.4,66.1 33.4,53 V36.5 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="54"
+                android:startY="28"
+                android:endX="54"
+                android:endY="80"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FF103468" />
+                <item android:offset="1.0" android:color="#FF071936" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- 菱形四端星枢连线（通用 / 网页 / 电脑 / 手机） -->
+    <path
+        android:strokeColor="#7767E8F9"
+        android:strokeWidth="1.2"
+        android:pathData="M54,36.5 L68.5,53.5 L54,71.5 L39.5,53.5 Z M54,36.5 V43 M39.5,53.5 H46.5 M61.5,53.5 H68.5 M54,66 V71.5" />
+
+    <!-- 四个星枢节点 -->
+    <path android:fillColor="#FFA5F3FC" android:pathData="M54,36.5m-2.2,0a2.2,2.2 0,1 1,4.4 0a2.2,2.2 0,1 1,-4.4 0" />
+    <path android:fillColor="#FFA5F3FC" android:pathData="M39.5,53.5m-2.2,0a2.2,2.2 0,1 1,4.4 0a2.2,2.2 0,1 1,-4.4 0" />
+    <path android:fillColor="#FFA5F3FC" android:pathData="M68.5,53.5m-2.2,0a2.2,2.2 0,1 1,4.4 0a2.2,2.2 0,1 1,-4.4 0" />
+    <path android:fillColor="#FFA5F3FC" android:pathData="M54,71.5m-2.2,0a2.2,2.2 0,1 1,4.4 0a2.2,2.2 0,1 1,-4.4 0" />
+
+    <!-- 核心流光几何钥匙孔 -->
+    <path android:pathData="M54,43.2 C58.1,43.2 61.4,46.5 61.4,50.6 C61.4,53.4 59.8,55.9 57.4,57.1 L59.5,65.8 H48.5 L50.6,57.1 C48.2,55.9 46.6,53.4 46.6,50.6 C46.6,46.5 49.9,43.2 54,43.2 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="54"
+                android:startY="43"
+                android:endX="54"
+                android:endY="66"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFFFFFFF" />
+                <item android:offset="0.65" android:color="#FFCFFAFE" />
+                <item android:offset="1.0" android:color="#FF38BDF8" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

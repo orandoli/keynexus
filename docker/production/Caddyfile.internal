@@ -1,0 +1,23 @@
+# 内网 IP / Tailscale 异地组网模式：使用 Caddy 内置私有 CA 自动签发本地 HTTPS 证书
+{$CADDY_HOST} {
+    tls internal
+    encode zstd gzip
+
+    header {
+        X-Content-Type-Options "nosniff"
+        -Server
+    }
+
+    handle_path /client-releases/* {
+        root * /srv/client-releases
+        header Access-Control-Allow-Origin "*"
+        header Cache-Control "no-store"
+        file_server
+    }
+
+    handle {
+        reverse_proxy pwdsv:80 {
+            header_up X-Real-IP {remote_host}
+        }
+    }
+}

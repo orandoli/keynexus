@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KeyNexus</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <img src="icons/128.png" alt="KeyNexus" class="brand-img" />
+        </span>
+        <div class="brand-titles">
+          <b>KeyNexus</b>
+          <small id="top-domain-pill">零知识密码中枢</small>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button id="btn-new" class="icon-btn accent" title="手动提交新密码" hidden>＋ 记密码</button>
+        <button id="btn-sync" class="icon-btn svg-ic" title="立即与服务器同步" hidden>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 0 0-15.5-6.36L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 15.5 6.36L21 16" /><path d="M16 16h5v5" />
+          </svg>
+        </button>
+        <button id="btn-lock" class="icon-btn svg-ic" title="立即锁定密码库" hidden>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="11" width="16" height="10" rx="2.5" /><path d="M8 11V7a4 4 0 0 1 8 0v4" />
+          </svg>
+        </button>
+        <button id="btn-settings" class="icon-btn svg-ic" title="插件设置">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.08a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.08a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.08a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- 1. 未解锁视图 -->
+      <section id="locked-view" class="view" hidden>
+        <div class="unlock-hero">
+          <div class="unlock-badge">🔐 端到端零知识加密</div>
+          <p class="hint" id="locked-hint">连接你的 PWDSV 服务器，输入主密码在本机派生密钥解锁。</p>
+        </div>
+        <form id="unlock-form" class="card-box" autocomplete="off">
+          <label class="field">
+            <span>PWDSV 服务器地址</span>
+            <input id="server" type="url" placeholder="https://vault.example.com" spellcheck="false" />
+          </label>
+          <label class="field">
+            <span>账号邮箱</span>
+            <input id="email" type="email" placeholder="you@example.com" spellcheck="false" />
+          </label>
+          <label class="field">
+            <span>主密码</span>
+            <input id="password" type="password" placeholder="仅在本机内存派生密钥" />
+          </label>
+          <div id="twofactor-field" class="twofactor-box" hidden>
+            <label class="field">
+              <span>两步验证方式</span>
+              <select id="twofactor-provider"></select>
+            </label>
+            <label class="field">
+              <span>两步验证码</span>
+              <div class="inline-row">
+                <input id="twofactor" type="text" inputmode="numeric" placeholder="6 位动态码或恢复码" />
+                <button type="button" id="btn-send-email-otp" class="ghost small" hidden>发邮件码</button>
+              </div>
+            </label>
+          </div>
+          <button type="submit" class="primary" id="btn-unlock">解锁密码库</button>
+          <p class="error" id="unlock-error" hidden></p>
+        </form>
+      </section>
+
+      <!-- 2. 密码库列表视图（悬停支持一键填入当前网页 / 一键复制） -->
+      <section id="vault-view" class="view" hidden>
+        <div class="sticky-head">
+          <div class="search">
+            <svg class="search-ic" viewBox="0 0 20 20" width="14" height="14">
+              <path d="M8.5 3a5.5 5.5 0 104.38 8.82l3.65 3.65a.75.75 0 101.06-1.06l-3.65-3.65A5.5 5.5 0 008.5 3zm-4 5.5a4 4 0 118 0 4 4 0 01-8 0z" fill="currentColor" />
+            </svg>
+            <input id="search" type="search" placeholder="搜全库：名称、账号、域名、.exe…" spellcheck="false" />
+          </div>
+          <div class="tabs" role="tablist">
+            <button type="button" class="tab active" data-scope="site" id="tab-site">当前站 (0)</button>
+            <button type="button" class="tab" data-scope="universal" id="tab-uni">🌐通用</button>
+            <button type="button" class="tab" data-scope="apps" id="tab-apps">💻电脑</button>
+            <button type="button" class="tab" data-scope="mobile" id="tab-mob">📱手机</button>
+            <button type="button" class="tab" data-scope="all" id="tab-all">全部 (0)</button>
+          </div>
+        </div>
+
+        <div id="site-hint" class="site-hint" hidden></div>
+        <ul id="item-list" class="item-list"></ul>
+
+        <div id="list-empty" class="empty-state" hidden>
+          <div class="empty-ic">🔎</div>
+          <p class="hint" id="empty-text">没有匹配的密码记录</p>
+          <button type="button" id="btn-empty-new" class="ghost small">＋ 为当前页面添加一条密码</button>
+        </div>
+
+        <div class="gen-card">
+          <div class="gen-bar">
+            <span class="gen-title">🎲 随手生成强密码</span>
+            <div class="inline-row">
+              <button type="button" id="btn-generate" class="ghost small">生成 20 位</button>
+              <button type="button" id="btn-gen-copy" class="ghost small" hidden>复制</button>
+            </div>
+          </div>
+          <div id="gen-result" class="gen-result" hidden>
+            <code id="gen-value"></code>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. 条目详情视图 -->
+      <section id="detail-view" class="view" hidden>
+        <div class="subbar">
+          <button type="button" id="btn-back" class="ghost small">← 返回列表</button>
+          <div class="subbar-actions">
+            <button type="button" id="btn-edit" class="ghost small">✎ 编辑</button>
+            <button type="button" id="btn-delete" class="ghost small danger-text">删除</button>
+          </div>
+        </div>
+
+        <div class="detail-hero">
+          <div class="p-avatar lg" id="detail-avatar">PW</div>
+          <div class="detail-hero-main">
+            <div class="detail-title-line">
+              <h2 id="detail-name"></h2>
+              <button type="button" id="btn-detail-fav" class="fav-star" title="收藏 / 取消收藏">☆</button>
+            </div>
+            <div id="detail-badges" class="badges-row"></div>
+          </div>
+        </div>
+
+        <div class="detail-cta-strip">
+          <button type="button" id="btn-fill" class="primary">⚡ 一键填入当前网页</button>
+        </div>
+
+        <div class="card-box compact-rows">
+          <div class="detail-row">
+            <div class="dr-meta">
+              <span class="label">账号 / 用户名</span>
+              <code id="detail-username"></code>
+            </div>
+            <button type="button" class="ghost small" data-copy="username">复制</button>
+          </div>
+
+          <div class="detail-row">
+            <div class="dr-meta">
+              <div class="lbl-with-pill">
+                <span class="label">登录密码</span>
+                <span id="detail-strength" class="strength-pill" hidden></span>
+              </div>
+              <div id="detail-password" class="pwd-val masked">••••••••••••</div>
+            </div>
+            <div class="inline-row">
+              <button type="button" class="ghost small" id="btn-reveal">显示</button>
+              <button type="button" class="ghost small" data-copy="password">复制</button>
+            </div>
+          </div>
+
+          <div class="detail-row" id="detail-totp-row" hidden>
+            <div class="dr-meta">
+              <span class="label">Authenticator 动态码</span>
+              <div class="totp-inline">
+                <code id="detail-totp"></code>
+                <span class="totp-ring-box">
+                  <svg class="totp-svg" viewBox="0 0 24 24" width="16" height="16">
+                    <circle class="r-bg" cx="12" cy="12" r="9" />
+                    <circle class="r-fg" id="detail-totp-circle" cx="12" cy="12" r="9" stroke-dasharray="56.55" stroke-dashoffset="0" />
+                  </svg>
+                  <span id="totp-left" class="totp-left"></span>
+                </span>
+              </div>
+            </div>
+            <button type="button" class="ghost small" data-copy="totp">复制</button>
+          </div>
+        </div>
+
+        <div class="card-box" id="detail-uri-row" style="margin-top: 8px" hidden>
+          <span class="sec-lbl">关联终端与自动触发规则</span>
+          <div id="detail-uris" class="uri-list"></div>
+        </div>
+
+        <div class="card-box" id="detail-notes-row" style="margin-top: 8px" hidden>
+          <span class="sec-lbl">安全备注</span>
+          <div id="detail-notes" class="notes-box"></div>
+        </div>
+      </section>
+
+      <!-- 4. 新建 / 编辑密码表单视图 -->
+      <section id="editor-view" class="view" hidden>
+        <div class="subbar">
+          <button type="button" id="btn-editor-cancel" class="ghost small">← 取消</button>
+          <span id="editor-title" class="subbar-title">新建密码</span>
+        </div>
+
+        <form id="editor-form" class="card-box" autocomplete="off">
+          <label class="field">
+            <span>条目名称 *</span>
+            <input id="ed-name" type="text" placeholder="例如：GitHub / 公司邮箱 / Navicat" required />
+          </label>
+          <label class="field">
+            <span>适用端口类型（服务端四态分类）</span>
+            <select id="ed-scope">
+              <option value="universal">🌐 三端统一通用账户（网页 + 电脑 + 手机互通）</option>
+              <option value="web">🕸 仅网页端密码</option>
+              <option value="desktop">💻 仅电脑客户端密码</option>
+              <option value="mobile">📱 仅手机端密码</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>账号 / 用户名</span>
+            <input id="ed-username" type="text" placeholder="邮箱、手机号或登录名" spellcheck="false" />
+          </label>
+          <div class="field">
+            <div class="lbl-with-pill" style="margin-bottom: 4px">
+              <span style="margin: 0">密码 *</span>
+              <span id="ed-strength" class="strength-pill" hidden></span>
+            </div>
+            <div class="inline-row">
+              <input id="ed-password" type="password" placeholder="输入或点右侧生成强密码" required />
+              <button type="button" id="btn-ed-eye" class="ghost small">显示</button>
+              <button type="button" id="btn-ed-gen" class="ghost small" title="生成 20 位高强度密码">🎲</button>
+            </div>
+          </div>
+          <label class="field">
+            <span>匹配网址或应用（每行一条：网址 / app://进程.exe / androidapp://包名）</span>
+            <textarea id="ed-uris" rows="2" placeholder="https://example.com&#10;app://WeChat.exe" spellcheck="false"></textarea>
+          </label>
+          <label class="field">
+            <span>Authenticator 密钥（选填，Base32 或 otpauth://）</span>
+            <input id="ed-totp" type="text" placeholder="JBSWY3DPEHPK3PXP" spellcheck="false" />
+          </label>
+          <div class="inline-two">
+            <label class="field">
+              <span>文件夹</span>
+              <select id="ed-folder">
+                <option value="">无文件夹</option>
+              </select>
+            </label>
+            <label class="check-inline">
+              <input id="ed-favorite" type="checkbox" />
+              <span>星标收藏</span>
+            </label>
+          </div>
+          <label class="field">
+            <span>备注（选填）</span>
+            <textarea id="ed-notes" rows="2" placeholder="安全问题、附加说明等"></textarea>
+          </label>
+
+          <button type="submit" class="primary" id="btn-ed-save">加密提交到服务器</button>
+          <p class="error" id="editor-error" hidden></p>
+        </form>
+      </section>
+    </main>
+
+    <footer class="statusbar">
+      <span id="status-text">未解锁</span>
+      <button type="button" id="btn-popup-update" class="update-pill" hidden></button>
+    </footer>
+
+    <script src="popup.js" type="module"></script>
+  </body>
+</html>

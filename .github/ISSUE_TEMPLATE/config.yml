@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: GitHub Discussions for PWDSV
+    url: https://github.com/your-org/pwdsv/discussions
+    about: Use the discussions to request features or get help with usage/configuration.
+  - name: Discourse forum for PWDSV
+    url: https://pwdsv.discourse.group/
+    about: An alternative to the GitHub Discussions, if this is easier for you.

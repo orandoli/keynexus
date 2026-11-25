@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Default capability for PWDSV main and HUD windows","local":true,"windows":["main","hud"],"permissions":["core:default","core:event:default","core:window:default"]}}

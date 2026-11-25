@@ -1,0 +1,34 @@
+# Local build artifacts
+target
+tools/extension/dist
+clients/desktop/src-tauri/target
+clients/mobile/.gradle
+clients/mobile/build
+clients/mobile/app/build
+clients/mobile/local.properties
+
+# Data folder
+data
+
+# IDE files
+.vscode
+.idea
+*.iml
+
+# Environment file
+.env
+docker/production/.env
+docker/production/Caddyfile
+docker/production/backups
+
+# Web vault
+web-vault
+
+# 本地导出的密码表不要进仓库
+*.csv
+
+# 本地非项目文件与 Agent 上下文
+AGENTS.md
+dsh-rheostat/
+dsh-rheostat.zip
+dsh-liang-skin-install/
