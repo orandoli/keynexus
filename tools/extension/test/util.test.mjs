@@ -11,6 +11,7 @@ import { generatePassword, generatePin, estimateStrength } from "../src/lib/gene
 import { compareSemver, parseGitHubRepo, resolveManifestUrl, resolveDownloadUrl, extractGitHubReleaseManifest, checkClientUpdate } from "../src/lib/updater.js";
 import { deriveMasterKey, makeRegisterPayload, decryptPrivateKey } from "../src/lib/crypto.js";
 import { unlockUserKey } from "../src/lib/vault.js";
+import { PwdsvApi } from "../src/lib/api.js";
 
 let pass = 0;
 let fail = 0;
@@ -229,6 +230,38 @@ console.log("[9] 零知识网页端注册载荷与密钥闭环");
   const { userKey } = await unlockUserKey({ key: payload.key }, mk);
   const pkcs8 = await decryptPrivateKey(userKey, payload.keys.encryptedPrivateKey);
   eq("RSA 私钥成功还原 PKCS8 字节", pkcs8 instanceof Uint8Array && pkcs8.length > 500, true);
+
+  // 新版两步注册流程测试
+  const calls2Step = [];
+  const api2Step = new PwdsvApi("https://vault.example.com", {
+    fetchImpl: async (url, init) => {
+      calls2Step.push({ url, body: JSON.parse(init.body) });
+      if (url.endsWith("/send-verification-email")) {
+        return { ok: true, status: 200, async text() { return JSON.stringify("verify-jwt-token-123"); } };
+      }
+      return { ok: true, status: 200, async text() { return JSON.stringify({ object: "register" }); } };
+    },
+  });
+  await api2Step.register(payload);
+  eq("两步注册依次调用2次接口", calls2Step.length, 2);
+  eq("两步注册携带 emailVerificationToken", calls2Step[1].body.emailVerificationToken, "verify-jwt-token-123");
+
+  // 旧版 404 降级注册测试
+  const callsLegacy = [];
+  const apiLegacy = new PwdsvApi("https://vault.example.com", {
+    fetchImpl: async (url, init) => {
+      callsLegacy.push({ url, body: JSON.parse(init.body) });
+      if (url.endsWith("/send-verification-email")) {
+        return { ok: false, status: 404, async text() { return "<html>404</html>"; } };
+      }
+      return { ok: true, status: 200, async text() { return JSON.stringify({ object: "register" }); } };
+    },
+  });
+  await apiLegacy.register(payload);
+  eq("旧版404自动降级 /register", callsLegacy.map((c) => new URL(c.url).pathname), [
+    "/identity/accounts/register/send-verification-email",
+    "/identity/accounts/register",
+  ]);
 }
 
 console.log("");

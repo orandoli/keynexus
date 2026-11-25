@@ -61,11 +61,21 @@ $manifest = [ordered]@{
 
 $webVaultDir = if ([System.IO.Path]::IsPathRooted($WebVaultOutDir)) { $WebVaultOutDir } else { Join-Path $repoRoot $WebVaultOutDir }
 if (Test-Path $webVaultDir) {
+  Add-Type -AssemblyName System.IO.Compression
   Add-Type -AssemblyName System.IO.Compression.FileSystem
   $webZipName = "keynexus-web-$desktopVer.zip"
   $webZipPath = Join-Path $targetDir $webZipName
   if (Test-Path $webZipPath) { Remove-Item $webZipPath -Force }
-  [System.IO.Compression.ZipFile]::CreateFromDirectory($webVaultDir, $webZipPath, [System.IO.Compression.CompressionLevel]::Optimal, $false)
+  $webRootNorm = (Resolve-Path $webVaultDir).Path.TrimEnd('\', '/') + '\'
+  $zipArch = [System.IO.Compression.ZipFile]::Open($webZipPath, [System.IO.Compression.ZipArchiveMode]::Create)
+  try {
+    Get-ChildItem -Path $webVaultDir -Recurse -File | ForEach-Object {
+      $rel = $_.FullName.Substring($webRootNorm.Length).Replace('\', '/')
+      [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zipArch, $_.FullName, $rel, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
+    }
+  } finally {
+    $zipArch.Dispose()
+  }
   $webHash = (Get-FileHash -Path $webZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
   $manifest["web"] = [ordered]@{
     version = $desktopVer
