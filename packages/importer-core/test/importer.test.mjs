@@ -242,12 +242,16 @@ console.log("[4] 模型源自动检测 (fetchProviderModels)");
   ok("OpenAI 携带 Bearer Auth", oaiUrls[1].auth === "Bearer sk-wb-test");
   ok("OpenAI 自动推荐非 embedding 文本模型与视觉模型", oaiRes.suggestedText === "deepseek-chat" && oaiRes.suggestedVision === "gpt-4o-mini", oaiRes);
 
-  // Google Gemini 模型列表（自动剥离 models/ 前缀并过滤支持 generateContent 的模型）
+  // Google Gemini 模型列表（自动剥离 models/ 前缀、携带 pageSize=1000 并过滤支持 generateContent 的模型）
   const gemRes = await fetchProviderModels(
     { protocol: "gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta", apiKey: "gm-k" },
     {
       fetchImpl: async (url, init) => {
-        ok("Gemini /v1beta/models 地址与头", url === "https://generativelanguage.googleapis.com/v1beta/models" && init.headers["x-goog-api-key"] === "gm-k");
+        ok(
+          "Gemini /v1beta/models?pageSize=1000 地址与头",
+          url === "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000" &&
+            init.headers["x-goog-api-key"] === "gm-k",
+        );
         return {
           ok: true,
           status: 200,
@@ -265,12 +269,22 @@ console.log("[4] 模型源自动检测 (fetchProviderModels)");
   );
   ok("Gemini 剥离 models/ 前缀并过滤非对话模型", gemRes.models.length === 1 && gemRes.suggestedText === "gemini-2.5-flash" && gemRes.suggestedVision === "gemini-2.5-flash", gemRes);
 
-  // Anthropic Claude 模型列表
+  // Anthropic 兼容子路径剥离 + 401 自动切换 Bearer 兜底（覆盖中转站如 wb-proxy）
+  const antCalls = [];
   const antRes = await fetchProviderModels(
-    { protocol: "anthropic", baseUrl: "https://api.anthropic.com", apiKey: "ak-k" },
+    { protocol: "anthropic", baseUrl: "https://relay.example.com/api/anthropic", apiKey: "sk-ant-secret" },
     {
       fetchImpl: async (url, init) => {
-        ok("Anthropic /v1/models 地址与头", url === "https://api.anthropic.com/v1/models" && init.headers["x-api-key"] === "ak-k");
+        antCalls.push({ url, xApiKey: init.headers["x-api-key"] || "", auth: init.headers.Authorization || "" });
+        if (url === "https://relay.example.com/api/anthropic/v1/models" && init.headers["x-api-key"]) {
+          return { ok: false, status: 401, async text() { return "unauthorized"; } };
+        }
+        if (url === "https://relay.example.com/api/anthropic/v1/models" && init.headers.Authorization) {
+          return { ok: false, status: 404, async text() { return "<html>404</html>"; } };
+        }
+        if (url === "https://relay.example.com/api/anthropic/models") {
+          return { ok: false, status: 404, async text() { return "Not Found"; } };
+        }
         return {
           ok: true,
           status: 200,
@@ -281,7 +295,52 @@ console.log("[4] 模型源自动检测 (fetchProviderModels)");
       },
     },
   );
+  ok(
+    "Anthropic 401 自动 Bearer 兜底 + 剥离 /api/anthropic 后缀回退根 /v1/models",
+    antCalls.some((c) => c.auth === "Bearer sk-ant-secret") && antRes.endpoint === "https://relay.example.com/v1/models",
+    antCalls,
+  );
   ok("Anthropic 返回推荐模型", antRes.suggestedText === "claude-3-7-sonnet-latest" && antRes.suggestedVision === "claude-3-7-sonnet-latest", antRes);
+
+  // 智谱 /coding/paas/v4 版本段智能拼接 + models[].slug 解析
+  let zhipuUrl = "";
+  const zhipuRes = await fetchProviderModels(
+    { protocol: "openai-compatible", baseUrl: "https://open.bigmodel.cn/api/coding/paas/v4", apiKey: "zp-key" },
+    {
+      fetchImpl: async (url) => {
+        zhipuUrl = url;
+        return {
+          ok: true,
+          status: 200,
+          async text() {
+            return JSON.stringify({ models: [{ slug: "glm-4.5" }, { slug: "glm-4v-plus" }] });
+          },
+        };
+      },
+    },
+  );
+  ok("非 v1 版本段直接拼 /models", zhipuUrl === "https://open.bigmodel.cn/api/coding/paas/v4/models", zhipuUrl);
+  ok("解析 models[].slug 并推荐视觉模型", zhipuRes.suggestedText === "glm-4.5" && zhipuRes.suggestedVision === "glm-4v-plus", zhipuRes);
+
+  // 错误返回中泄露 API Key 时自动脱敏
+  let leakedErrMsg = "";
+  try {
+    await fetchProviderModels(
+      { protocol: "openai-compatible", baseUrl: "https://bad.example.com", apiKey: "sk-topsecret-9999" },
+      {
+        fetchImpl: async () => ({
+          ok: false,
+          status: 500,
+          async text() {
+            return JSON.stringify({ error: { message: "bad token sk-topsecret-9999 rejected" } });
+          },
+        }),
+      },
+    );
+  } catch (e) {
+    leakedErrMsg = String(e.message || e);
+  }
+  ok("错误文本脱敏 API Key", !leakedErrMsg.includes("sk-topsecret-9999") && leakedErrMsg.includes("***"), leakedErrMsg);
 }
 
 console.log("");

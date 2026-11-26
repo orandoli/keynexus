@@ -14,7 +14,7 @@ import { RealtimeHub } from "./lib/realtime.js";
 import { PRESET_PROVIDERS, parsePasswordFile, testProviderConnection, fetchProviderModels } from "./lib/importer/index.js";
 import { compareSemver, fetchReleaseCatalog, checkClientUpdate } from "./lib/updater.js";
 
-const WEB_APP_VERSION = "2.0.1";
+const WEB_APP_VERSION = "2.0.2";
 const PREFS_KEY = "pwdsv_web_prefs_v1";
 const PROVIDERS_KEY = "pwdsv_web_ai_providers_v1";
 
@@ -1419,12 +1419,17 @@ async function detectWebProviderModels(silent = false) {
   }
   const msgEl = $("prov-msg");
   const btn = $("btn-prov-detect");
+  const origBtn = btn?.textContent || "🔍 检测模型";
   if (!silent && msgEl) msgEl.textContent = "正在检测可用模型…";
-  if (btn) btn.disabled = true;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "检测中…";
+  }
   try {
     const res = await fetchProviderModels({
       protocol: $("p-protocol").value,
       baseUrl,
+      exactEndpoint: Boolean($("p-exact")?.checked),
       apiKey: $("p-apikey").value.trim(),
       customHeaders: $("p-headers").value.trim(),
     });
@@ -1457,7 +1462,10 @@ async function detectWebProviderModels(silent = false) {
   } catch (err) {
     if (!silent && msgEl) msgEl.textContent = "✗ 模型检测失败：" + (err?.message || err);
   } finally {
-    if (btn) btn.disabled = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = origBtn;
+    }
   }
 }
 

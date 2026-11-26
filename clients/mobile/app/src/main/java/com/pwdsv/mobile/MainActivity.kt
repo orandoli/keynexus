@@ -200,12 +200,17 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     val headers = req.optJSONObject("headers")
+                    var hasUa = false
                     if (headers != null) {
                         val keys = headers.keys()
                         while (keys.hasNext()) {
                             val k = keys.next()
+                            if (k.equals("User-Agent", ignoreCase = true)) hasUa = true
                             conn.setRequestProperty(k, headers.optString(k))
                         }
+                    }
+                    if (!hasUa) {
+                        conn.setRequestProperty("User-Agent", "KeyNexus/2.0")
                     }
 
                     if (!req.isNull("body")) {
@@ -340,11 +345,11 @@ class MainActivity : AppCompatActivity() {
                     pInfo.versionCode.toLong()
                 }
                 JSONObject()
-                    .put("versionName", pInfo.versionName ?: "2.0.1")
+                    .put("versionName", pInfo.versionName ?: "2.0.2")
                     .put("versionCode", code)
                     .toString()
             }.getOrElse {
-                """{"versionName":"2.0.1","versionCode":201}"""
+                """{"versionName":"2.0.2","versionCode":202}"""
             }
         }
 

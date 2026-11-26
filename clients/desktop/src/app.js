@@ -1669,13 +1669,18 @@ async function detectDesktopProviderModels(silent = false) {
   }
   const msgEl = $("prov-msg");
   const btn = $("btn-prov-detect");
+  const origBtn = btn?.textContent || "🔍 检测模型";
   if (!silent) msgEl.textContent = "正在检测可用模型…";
-  if (btn) btn.disabled = true;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "检测中…";
+  }
   try {
     const res = await fetchProviderModels(
       {
         protocol: $("p-protocol").value,
         baseUrl,
+        exactEndpoint: Boolean($("p-exact")?.checked),
         apiKey: $("p-apikey").value.trim(),
         customHeaders: $("p-headers").value.trim(),
       },
@@ -1708,7 +1713,10 @@ async function detectDesktopProviderModels(silent = false) {
   } catch (err) {
     if (!silent) msgEl.textContent = `✗ 模型检测失败：${err?.message || err}`;
   } finally {
-    if (btn) btn.disabled = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = origBtn;
+    }
   }
 }
 
@@ -2137,7 +2145,7 @@ async function getDesktopAppVersion() {
   } catch {
     /* 忽略 */
   }
-  return "2.0.1";
+  return "2.0.2";
 }
 
 function renderDesktopUpdateState(res = state.pendingUpdate, explicitMsg = "") {

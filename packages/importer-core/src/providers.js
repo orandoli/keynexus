@@ -339,59 +339,164 @@ function isAuxNonChatModelId(id) {
   return /(?:embedding|embed|whisper|tts|dall-e|moderation|rerank|bge-|text-embedding)/i.test(String(id || ""));
 }
 
-function buildModelsEndpoints(protocol, baseUrl) {
+/** 常见 Anthropic / 编程套餐兼容子路径后缀（按长度降序优先匹配） */
+const KNOWN_COMPAT_SUFFIXES = [
+  "/api/claudecode",
+  "/api/anthropic",
+  "/apps/anthropic",
+  "/api/coding",
+  "/claudecode",
+  "/anthropic",
+  "/step_plan",
+  "/coding",
+  "/claude",
+];
+
+function stripCompatSuffix(url) {
+  const lower = url.toLowerCase();
+  for (const suffix of KNOWN_COMPAT_SUFFIXES) {
+    if (lower.endsWith(suffix)) {
+      return url.slice(0, url.length - suffix.length);
+    }
+  }
+  return null;
+}
+
+function endsWithVersionSegment(url) {
+  const last = url.split("/").pop() || "";
+  return /^v\d+$/i.test(last);
+}
+
+function redactSecret(text, secrets = []) {
+  let s = String(text || "").trim();
+  if (!s || s.startsWith("<")) return "";
+  for (const sec of secrets) {
+    const token = String(sec || "").trim();
+    if (token.length >= 4 && s.includes(token)) {
+      s = s.split(token).join("***");
+    }
+  }
+  return s.length > 260 ? s.slice(0, 260) + "…" : s;
+}
+
+function buildModelsEndpoints(protocol, baseUrl, exactEndpoint = false) {
   const clean = String(baseUrl || "").trim().replace(/\/+$/, "");
   if (!clean) throw new Error("提供商 Base URL 不能为空");
 
   if (protocol === "gemini") {
-    let base = clean
+    const base = clean
       .replace(/\/models\/[^/]+:generateContent$/i, "")
       .replace(/:generateContent$/i, "")
-      .replace(/\/models$/i, "");
-    if (!/\/v1(?:beta)?$/i.test(base)) base += "/v1beta";
-    return [`${base}/models`];
+      .replace(/\/models$/i, "")
+      .replace(/\/v1(?:beta)?$/i, "");
+    return [`${base}/v1beta/models?pageSize=1000`];
   }
 
-  if (protocol === "anthropic") {
-    const base = clean.replace(/\/messages$/i, "").replace(/\/models$/i, "");
-    return [/\/v\d+$/i.test(base) ? `${base}/models` : `${base}/v1/models`];
+  if (exactEndpoint) {
+    const verMatch = clean.match(/^(https?:\/\/.+?\/v\d+)\//i);
+    if (verMatch) return [`${verMatch[1]}/models`];
+    const slashIdx = clean.lastIndexOf("/");
+    const schemeIdx = clean.indexOf("://");
+    if (slashIdx > (schemeIdx >= 0 ? schemeIdx + 3 : 0)) {
+      return [`${clean.slice(0, slashIdx)}/v1/models`];
+    }
   }
 
   const base = clean
     .replace(/\/chat\/completions$/i, "")
     .replace(/\/completions$/i, "")
+    .replace(/\/messages$/i, "")
     .replace(/\/models$/i, "");
-  if (/\/v\d+$/i.test(base) || /\/compatible-mode\/v\d+$/i.test(base)) {
-    return [`${base}/models`];
+
+  const candidates = [];
+  if (/\/v1$/i.test(base) || /\/compatible-mode\/v\d+$/i.test(base)) {
+    candidates.push(`${base}/models`);
+  } else if (endsWithVersionSegment(base)) {
+    candidates.push(`${base}/models`, `${base}/v1/models`);
+  } else {
+    candidates.push(`${base}/v1/models`, `${base}/models`);
   }
-  return [`${base}/v1/models`, `${base}/models`, `${base}/api/tags`];
+
+  const stripped = stripCompatSuffix(base);
+  if (stripped) {
+    candidates.push(`${stripped}/v1/models`, `${stripped}/models`);
+  }
+
+  if (protocol !== "anthropic") {
+    candidates.push(`${base}/api/tags`);
+  }
+
+  return Array.from(new Set(candidates));
+}
+
+function buildDetectHeaders(protocol, authMode, apiKey, extraHeaders) {
+  const headers = { Accept: "application/json", ...extraHeaders };
+  if (protocol === "anthropic") {
+    headers["anthropic-version"] = headers["anthropic-version"] || "2023-06-01";
+  }
+  if (apiKey) {
+    if (authMode === "x-goog-api-key") {
+      headers["x-goog-api-key"] = apiKey;
+    } else if (authMode === "x-api-key") {
+      headers["x-api-key"] = apiKey;
+    } else {
+      headers.Authorization = "Bearer " + apiKey;
+    }
+  }
+  return headers;
+}
+
+function extractModelIds(json, protocol) {
+  if (Array.isArray(json)) {
+    return json
+      .map((m) => (typeof m === "string" ? m : String(m?.slug || m?.id || m?.name || m?.model || "").replace(/^models\//, "")))
+      .filter(Boolean);
+  }
+  if (Array.isArray(json?.data)) {
+    return json.data
+      .map((m) => (typeof m === "string" ? m : String(m?.id || m?.slug || m?.name || "").replace(/^models\//, "")))
+      .filter(Boolean);
+  }
+  if (Array.isArray(json?.models)) {
+    if (protocol === "gemini") {
+      return json.models
+        .filter((m) => !Array.isArray(m?.supportedGenerationMethods) || m.supportedGenerationMethods.includes("generateContent"))
+        .map((m) => String(m?.name || m?.slug || m?.id || "").replace(/^models\//, ""))
+        .filter(Boolean);
+    }
+    return json.models
+      .map((m) => String(m?.slug || m?.id || m?.name || m?.model || "").replace(/^models\//, ""))
+      .filter(Boolean);
+  }
+  return [];
 }
 
 /**
  * 自动探测模型提供商的可用模型列表，并智能推荐文本/视觉模型 ID。
- * 支持 OpenAI 兼容 (/v1/models, /models)、Ollama (/api/tags)、Gemini (/v1beta/models)、Anthropic (/v1/models)。
+ * 借鉴 cc-switch 实战策略：兼容子路径剥离、版本段智能拼接、Gemini pageSize=1000、
+ * models[].slug、401/403 鉴权头互为兜底重试与错误信息密钥脱敏。
  */
 export async function fetchProviderModels(provider, opts = {}) {
   const fetchFn = opts.fetchImpl || ((...args) => fetch(...args));
   const protocol = provider?.protocol || "openai-compatible";
   const apiKey = String(provider?.apiKey || "").trim();
   const extraHeaders = parseCustomHeaders(provider?.customHeaders);
+  const secrets = [apiKey, ...Object.values(extraHeaders)];
 
-  const headers = { Accept: "application/json", ...extraHeaders };
-  if (protocol === "gemini") {
-    if (apiKey) headers["x-goog-api-key"] = apiKey;
-  } else if (protocol === "anthropic") {
-    if (apiKey) headers["x-api-key"] = apiKey;
-    headers["anthropic-version"] = headers["anthropic-version"] || "2023-06-01";
-  } else if (apiKey) {
-    headers.Authorization = "Bearer " + apiKey;
-  }
+  const primaryAuth =
+    protocol === "gemini" ? "x-goog-api-key" : protocol === "anthropic" ? "x-api-key" : "bearer";
+  const fallbackAuth =
+    apiKey && protocol === "anthropic"
+      ? "bearer"
+      : apiKey && protocol === "openai-compatible"
+        ? "x-api-key"
+        : "";
 
-  const endpoints = buildModelsEndpoints(protocol, provider?.baseUrl);
+  const endpoints = buildModelsEndpoints(protocol, provider?.baseUrl, Boolean(provider?.exactEndpoint));
   let lastErr = null;
 
-  for (let i = 0; i < endpoints.length; i++) {
-    const endpoint = endpoints[i];
+  async function requestModels(endpoint, authMode) {
+    const headers = buildDetectHeaders(protocol, authMode, apiKey, extraHeaders);
     let res;
     try {
       res = await fetchFn(endpoint, { method: "GET", headers });
@@ -405,7 +510,7 @@ export async function fetchProviderModels(provider, opts = {}) {
           `浏览器安全策略拦截了 HTTPS 页面直接请求 HTTP 地址 (${endpoint})，请改用 HTTPS 地址或同源反向代理（如 /ai-proxy/8788）`,
         );
       }
-      throw new Error(`连接模型列表接口失败 (${endpoint})：${e?.message || e}`);
+      throw new Error(`连接模型列表接口失败 (${endpoint})：${redactSecret(e?.message || e, secrets)}`);
     }
 
     const rawText = await res.text();
@@ -417,42 +522,46 @@ export async function fetchProviderModels(provider, opts = {}) {
     }
 
     if (!res.ok) {
-      const errMsg =
+      const rawErr =
         json?.error?.message ||
         json?.message ||
         (typeof json?.error === "string" && json.error) ||
-        rawText.slice(0, 180) ||
-        `HTTP ${res.status}`;
-      lastErr = new Error(`获取模型列表失败 (${res.status})：${errMsg}`);
-      if ((res.status === 404 || res.status === 405) && i < endpoints.length - 1) {
+        redactSecret(rawText, secrets);
+      const cleanErr = redactSecret(rawErr, secrets) || `HTTP ${res.status}`;
+      return { ok: false, status: res.status, message: `获取模型列表失败 (${res.status})：${cleanErr}` };
+    }
+
+    const rawIds = extractModelIds(json, protocol);
+    const models = Array.from(new Set(rawIds.map((s) => String(s).trim()).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b),
+    );
+    return { ok: true, status: res.status, models };
+  }
+
+  for (let i = 0; i < endpoints.length; i++) {
+    const endpoint = endpoints[i];
+    let outcome = await requestModels(endpoint, primaryAuth);
+
+    if (!outcome.ok && (outcome.status === 401 || outcome.status === 403) && fallbackAuth) {
+      const retryOutcome = await requestModels(endpoint, fallbackAuth);
+      if (retryOutcome.ok || (retryOutcome.status !== 401 && retryOutcome.status !== 403)) {
+        outcome = retryOutcome;
+      }
+    }
+
+    if (!outcome.ok) {
+      lastErr = new Error(outcome.message);
+      if ((outcome.status === 404 || outcome.status === 405) && i < endpoints.length - 1) {
         continue;
       }
       throw lastErr;
     }
 
-    let rawIds = [];
-    if (Array.isArray(json?.data)) {
-      rawIds = json.data.map((m) => (typeof m === "string" ? m : m?.id || "")).filter(Boolean);
-    } else if (Array.isArray(json?.models)) {
-      if (protocol === "gemini") {
-        rawIds = json.models
-          .filter((m) => !Array.isArray(m?.supportedGenerationMethods) || m.supportedGenerationMethods.includes("generateContent"))
-          .map((m) => String(m?.name || m?.id || "").replace(/^models\//, ""))
-          .filter(Boolean);
-      } else {
-        rawIds = json.models
-          .map((m) => String(m?.name || m?.model || m?.id || "").replace(/^models\//, ""))
-          .filter(Boolean);
-      }
-    }
-
-    const models = Array.from(new Set(rawIds.map((s) => String(s).trim()).filter(Boolean))).sort((a, b) =>
-      a.localeCompare(b),
-    );
-    if (models.length) {
-      const suggestedText = models.find((id) => !isAuxNonChatModelId(id)) || models[0];
-      const suggestedVision = models.find((id) => !isAuxNonChatModelId(id) && isVisionModelId(id)) || "";
-      return { models, suggestedText, suggestedVision, endpoint };
+    if (outcome.models.length) {
+      const suggestedText = outcome.models.find((id) => !isAuxNonChatModelId(id)) || outcome.models[0];
+      const suggestedVision =
+        outcome.models.find((id) => !isAuxNonChatModelId(id) && isVisionModelId(id)) || "";
+      return { models: outcome.models, suggestedText, suggestedVision, endpoint };
     }
     lastErr = new Error("接口连通成功，但未返回任何可用模型");
   }

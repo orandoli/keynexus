@@ -1517,14 +1517,14 @@ function getMobileAppVersion() {
     try {
       const info = JSON.parse(native.getAppVersionJson() || "{}");
       return {
-        versionName: info.versionName || "2.0.1",
-        versionCode: Number(info.versionCode || 201),
+        versionName: info.versionName || "2.0.2",
+        versionCode: Number(info.versionCode || 202),
       };
     } catch {
       /* 忽略 */
     }
   }
-  return { versionName: "2.0.1", versionCode: 201 };
+  return { versionName: "2.0.2", versionCode: 202 };
 }
 
 window.__pwdsvUpdateProgress = (pct) => {
@@ -1727,13 +1727,18 @@ async function detectMobileProviderModels(silent = false) {
   }
   const msg = $("mp-msg");
   const btn = $("btn-mp-detect");
+  const origBtn = btn?.textContent || "🔍 检测模型";
   if (!silent && msg) msg.textContent = "正在检测可用模型…";
-  if (btn) btn.disabled = true;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "检测中…";
+  }
   try {
     const res = await fetchProviderModels(
       {
         protocol: $("mp-proto").value,
         baseUrl,
+        exactEndpoint: Boolean($("mp-exact")?.checked),
         apiKey: $("mp-key").value.trim(),
         customHeaders: $("mp-headers").value.trim(),
       },
@@ -1766,7 +1771,10 @@ async function detectMobileProviderModels(silent = false) {
   } catch (err) {
     if (!silent && msg) msg.textContent = "✗ 模型检测失败：" + (err?.message || err);
   } finally {
-    if (btn) btn.disabled = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = origBtn;
+    }
   }
 }
 

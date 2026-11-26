@@ -35,9 +35,14 @@ pub struct HttpProxyResponse {
 
 #[tauri::command]
 async fn http_request(req: HttpProxyRequest) -> Result<HttpProxyResponse, String> {
-    let client = reqwest::Client::builder()
+    let has_ua = req.headers.keys().any(|k| k.eq_ignore_ascii_case("user-agent"));
+    let mut client_builder = reqwest::Client::builder()
         .danger_accept_invalid_certs(req.insecure_tls)
-        .timeout(Duration::from_secs(20))
+        .timeout(Duration::from_secs(20));
+    if !has_ua {
+        client_builder = client_builder.user_agent("KeyNexus/2.0");
+    }
+    let client = client_builder
         .build()
         .map_err(|e| format!("创建 HTTP 客户端失败: {e}"))?;
 
