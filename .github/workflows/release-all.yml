@@ -1,0 +1,215 @@
+name: Release All 4 Clients
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v2.0.1)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-web-and-extension:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Sync shared libs and package Web & Extension zips
+        shell: bash
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          VER="${TAG#v}"
+          mkdir -p clients/web/src/lib/importer dist
+          cp -f tools/extension/src/lib/*.js clients/web/src/lib/
+          cp -f packages/importer-core/src/*.js clients/web/src/lib/importer/
+          cp -f src/static/images/pwdsv-icon.png clients/web/src/brand-icon.png
+          cp -f src/static/images/pwdsv-favicon.png clients/web/src/favicon.png
+
+          python3 - <<PY
+          import pathlib, zipfile
+
+          ver = "${VER}"
+
+          web_root = pathlib.Path("clients/web/src")
+          with zipfile.ZipFile(f"dist/keynexus-web-{ver}.zip", "w", zipfile.ZIP_DEFLATED) as zf:
+              for p in sorted(web_root.rglob("*")):
+                  if p.is_file():
+                      zf.write(p, p.relative_to(web_root).as_posix())
+
+          ext_root = pathlib.Path("tools/extension")
+          exclude_top = {"test", "dist", "build.ps1", "README.md"}
+          with zipfile.ZipFile(f"dist/keynexus-extension-{ver}.zip", "w", zipfile.ZIP_DEFLATED) as zf:
+              for p in sorted(ext_root.rglob("*")):
+                  if not p.is_file():
+                      continue
+                  rel = p.relative_to(ext_root)
+                  if rel.parts[0] in exclude_top:
+                      continue
+                  zf.write(p, rel.as_posix())
+          PY
+
+      - name: Upload Web & Extension artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-and-extension
+          path: dist/*.zip
+
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Sync shared libs for Android
+        shell: bash
+        run: |
+          mkdir -p clients/mobile/app/src/main/assets/www/lib/importer
+          cp -f tools/extension/src/lib/*.js clients/mobile/app/src/main/assets/www/lib/
+          cp -f packages/importer-core/src/*.js clients/mobile/app/src/main/assets/www/lib/importer/
+
+      - name: Setup Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Build Release APK
+        working-directory: clients/mobile
+        run: gradle assembleRelease --no-daemon
+
+      - name: Rename and stage APK
+        shell: bash
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          VER="${TAG#v}"
+          mkdir -p dist
+          cp -f clients/mobile/app/build/outputs/apk/release/app-release.apk "dist/keynexus-android-${VER}.apk"
+
+      - name: Upload Android APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: dist/*.apk
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: clients/desktop/src-tauri
+
+      - name: Sync shared libs & build Windows Desktop Release
+        shell: powershell
+        run: |
+          $tag = "${{ inputs.tag || github.ref_name }}"
+          $ver = $tag.TrimStart('v', 'V')
+          powershell -NoProfile -ExecutionPolicy Bypass -File clients/desktop/sync-shared-libs.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo build --release --manifest-path clients/desktop/src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          Copy-Item clients/desktop/src-tauri/target/release/pwdsv-desktop.exe "dist/keynexus-windows-$ver.exe" -Force
+
+      - name: Upload Windows EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: dist/*.exe
+
+  publish-release:
+    runs-on: ubuntu-latest
+    needs: [build-web-and-extension, build-android, build-windows]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all client artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Generate latest.json & publish GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          VER="${TAG#v}"
+          REPO="${{ github.repository }}"
+          export TAG VER REPO
+
+          python3 - <<'PY'
+          import datetime, hashlib, json, os, pathlib, re
+
+          tag = os.environ["TAG"]
+          ver = os.environ["VER"]
+          repo = os.environ["REPO"]
+          assets_dir = pathlib.Path("release-assets")
+
+          gradle_txt = pathlib.Path("clients/mobile/app/build.gradle.kts").read_text(encoding="utf-8")
+          m = re.search(r"versionCode\s*=\s*(\d+)", gradle_txt)
+          version_code = int(m.group(1)) if m else 201
+
+          manifest = {
+              "version": ver,
+              "publishedAt": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "notes": f"KeyNexus {tag}",
+          }
+
+          specs = [
+              ("web", f"keynexus-web-{ver}.zip", None),
+              ("mobile", f"keynexus-android-{ver}.apk", version_code),
+              ("desktop", f"keynexus-windows-{ver}.exe", None),
+              ("extension", f"keynexus-extension-{ver}.zip", None),
+          ]
+
+          for key, fn, vc in specs:
+              fp = assets_dir / fn
+              if not fp.exists():
+                  continue
+              data = fp.read_bytes()
+              entry = {
+                  "version": ver,
+                  "fileName": fn,
+                  "url": f"https://github.com/{repo}/releases/download/{tag}/{fn}",
+                  "sha256": hashlib.sha256(data).hexdigest(),
+                  "size": len(data),
+                  "notes": f"KeyNexus {tag}",
+              }
+              if vc is not None:
+                  entry["versionCode"] = vc
+              manifest[key] = entry
+
+          (assets_dir / "latest.json").write_text(
+              json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" release-assets/* --clobber
+          else
+            gh release create "$TAG" release-assets/* --title "KeyNexus ${TAG}" --generate-notes
+          fi
