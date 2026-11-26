@@ -587,17 +587,29 @@
               </label>
               <label class="field">
                 <span>API Key（本地 Ollama 等免鉴权服务可留空）</span>
-                <input id="p-apikey" type="password" placeholder="sk-..." spellcheck="false" />
+                <div class="inline-row">
+                  <input id="p-apikey" type="password" placeholder="sk-..." spellcheck="false" />
+                  <button type="button" class="ghost small" id="btn-prov-detect" title="根据 Base URL 与 API Key 拉取可用模型">🔍 检测模型</button>
+                </div>
               </label>
               <div class="grid-two">
                 <label class="field">
                   <span>文本解析模型 ID *</span>
-                  <input id="p-text-model" type="text" placeholder="如 deepseek-chat / qwen-plus" required />
+                  <input id="p-text-model" type="text" list="p-models-datalist" placeholder="如 deepseek-chat / qwen-plus" required />
                 </label>
                 <label class="field">
                   <span>图片视觉模型 ID（识图/扫描件必填）</span>
-                  <input id="p-vision-model" type="text" placeholder="如 qwen-vl-max / gpt-4o-mini" />
+                  <input id="p-vision-model" type="text" list="p-models-datalist" placeholder="如 qwen-vl-max / gpt-4o-mini" />
                 </label>
+              </div>
+              <datalist id="p-models-datalist"></datalist>
+              <div id="p-model-picker-row" class="field" hidden>
+                <span>已检测到的可用模型（选中后点击填入）</span>
+                <div class="inline-row">
+                  <select id="p-model-quick"></select>
+                  <button type="button" class="ghost small" id="btn-p-use-text">设为文本</button>
+                  <button type="button" class="ghost small" id="btn-p-use-vision">设为视觉</button>
+                </div>
               </div>
               <label class="field">
                 <span>自定义请求头 JSON（选填，供私有网关鉴权）</span>

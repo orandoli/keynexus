@@ -11,7 +11,7 @@
  */
 
 import zlib from "node:zlib";
-import { parsePasswordFile, callAiProvider } from "../src/index.js";
+import { parsePasswordFile, callAiProvider, fetchProviderModels } from "../src/index.js";
 
 let pass = 0;
 let fail = 0;
@@ -208,6 +208,80 @@ console.log("[3] PDF 压缩文本流提取与图片拍照多模态 Gemini / Clau
     },
   );
   ok("图片拍照走 Anthropic Vision image 块格式正确", claudeBody.messages[0].content[0].type === "image" && claudeBody.messages[0].content[0].source.data === "AAECAw==");
+}
+
+console.log("[4] 模型源自动检测 (fetchProviderModels)");
+{
+  // OpenAI 兼容网关：/v1/models 404 时自动回退到 /models，并过滤 embedding 模型
+  const oaiUrls = [];
+  const oaiRes = await fetchProviderModels(
+    { protocol: "openai-compatible", baseUrl: "http://152.32.234.200:8788/", apiKey: "sk-wb-test" },
+    {
+      fetchImpl: async (url, init) => {
+        oaiUrls.push({ url, auth: init.headers.Authorization });
+        if (url.endsWith("/v1/models")) {
+          return { ok: false, status: 404, async text() { return "Not Found"; } };
+        }
+        return {
+          ok: true,
+          status: 200,
+          async text() {
+            return JSON.stringify({
+              data: [
+                { id: "text-embedding-3-large" },
+                { id: "deepseek-chat" },
+                { id: "gpt-4o-mini" },
+              ],
+            });
+          },
+        };
+      },
+    },
+  );
+  ok("OpenAI /v1/models 404 自动回退 /models", oaiUrls.length === 2 && oaiUrls[1].url === "http://152.32.234.200:8788/models");
+  ok("OpenAI 携带 Bearer Auth", oaiUrls[1].auth === "Bearer sk-wb-test");
+  ok("OpenAI 自动推荐非 embedding 文本模型与视觉模型", oaiRes.suggestedText === "deepseek-chat" && oaiRes.suggestedVision === "gpt-4o-mini", oaiRes);
+
+  // Google Gemini 模型列表（自动剥离 models/ 前缀并过滤支持 generateContent 的模型）
+  const gemRes = await fetchProviderModels(
+    { protocol: "gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta", apiKey: "gm-k" },
+    {
+      fetchImpl: async (url, init) => {
+        ok("Gemini /v1beta/models 地址与头", url === "https://generativelanguage.googleapis.com/v1beta/models" && init.headers["x-goog-api-key"] === "gm-k");
+        return {
+          ok: true,
+          status: 200,
+          async text() {
+            return JSON.stringify({
+              models: [
+                { name: "models/embedding-001", supportedGenerationMethods: ["embedContent"] },
+                { name: "models/gemini-2.5-flash", supportedGenerationMethods: ["generateContent"] },
+              ],
+            });
+          },
+        };
+      },
+    },
+  );
+  ok("Gemini 剥离 models/ 前缀并过滤非对话模型", gemRes.models.length === 1 && gemRes.suggestedText === "gemini-2.5-flash" && gemRes.suggestedVision === "gemini-2.5-flash", gemRes);
+
+  // Anthropic Claude 模型列表
+  const antRes = await fetchProviderModels(
+    { protocol: "anthropic", baseUrl: "https://api.anthropic.com", apiKey: "ak-k" },
+    {
+      fetchImpl: async (url, init) => {
+        ok("Anthropic /v1/models 地址与头", url === "https://api.anthropic.com/v1/models" && init.headers["x-api-key"] === "ak-k");
+        return {
+          ok: true,
+          status: 200,
+          async text() {
+            return JSON.stringify({ data: [{ id: "claude-3-7-sonnet-latest" }] });
+          },
+        };
+      },
+    },
+  );
+  ok("Anthropic 返回推荐模型", antRes.suggestedText === "claude-3-7-sonnet-latest" && antRes.suggestedVision === "claude-3-7-sonnet-latest", antRes);
 }
 
 console.log("");

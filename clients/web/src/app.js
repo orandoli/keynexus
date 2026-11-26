@@ -11,7 +11,7 @@ import { generateTotp, parseTotp } from "./lib/totp.js";
 import { resolveItemScope, SCOPE_LABELS } from "./lib/matcher.js";
 import { generatePassword, estimateStrength } from "./lib/generator.js";
 import { RealtimeHub } from "./lib/realtime.js";
-import { PRESET_PROVIDERS, parsePasswordFile, testProviderConnection } from "./lib/importer/index.js";
+import { PRESET_PROVIDERS, parsePasswordFile, testProviderConnection, fetchProviderModels } from "./lib/importer/index.js";
 import { compareSemver, fetchReleaseCatalog, checkClientUpdate } from "./lib/updater.js";
 
 const WEB_APP_VERSION = "2.0.0";
@@ -1390,6 +1390,12 @@ function renderProvidersPane() {
     }
   }
 }
+function resetWebDetectedModels() {
+  if ($("p-models-datalist")) $("p-models-datalist").textContent = "";
+  if ($("p-model-quick")) $("p-model-quick").textContent = "";
+  if ($("p-model-picker-row")) $("p-model-picker-row").hidden = true;
+}
+
 function loadProviderForm(p) {
   if (!p) return;
   $("p-name").value = p.name || "";
@@ -1400,7 +1406,85 @@ function loadProviderForm(p) {
   $("p-text-model").value = p.textModel || "";
   $("p-vision-model").value = p.visionModel || "";
   $("p-headers").value = p.customHeaders || "";
+  if ($("prov-msg")) $("prov-msg").textContent = "";
+  resetWebDetectedModels();
 }
+
+let webDetectTimer = null;
+async function detectWebProviderModels(silent = false) {
+  const baseUrl = $("p-baseurl")?.value.trim() || "";
+  if (!baseUrl) {
+    if (!silent && $("prov-msg")) $("prov-msg").textContent = "请先填写 Base URL";
+    return;
+  }
+  const msgEl = $("prov-msg");
+  const btn = $("btn-prov-detect");
+  if (!silent && msgEl) msgEl.textContent = "正在检测可用模型…";
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetchProviderModels({
+      protocol: $("p-protocol").value,
+      baseUrl,
+      apiKey: $("p-apikey").value.trim(),
+      customHeaders: $("p-headers").value.trim(),
+    });
+    const dl = $("p-models-datalist");
+    const sel = $("p-model-quick");
+    if (dl) {
+      dl.textContent = "";
+      for (const id of res.models) {
+        const opt = document.createElement("option");
+        opt.value = id;
+        dl.appendChild(opt);
+      }
+    }
+    if (sel) {
+      sel.textContent = "";
+      for (const id of res.models) {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = id;
+        sel.appendChild(opt);
+      }
+      if (res.suggestedText) sel.value = res.suggestedText;
+    }
+    if ($("p-model-picker-row")) $("p-model-picker-row").hidden = !res.models.length;
+    if (!$("p-text-model").value.trim() && res.suggestedText) $("p-text-model").value = res.suggestedText;
+    if (!$("p-vision-model").value.trim() && res.suggestedVision) $("p-vision-model").value = res.suggestedVision;
+    if (msgEl) {
+      msgEl.textContent = `✓ 检测到 ${res.models.length} 个模型（已自动填入推荐模型，也可从下方列表切换）`;
+    }
+  } catch (err) {
+    if (!silent && msgEl) msgEl.textContent = "✗ 模型检测失败：" + (err?.message || err);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function scheduleWebModelDetect() {
+  if (webDetectTimer) clearTimeout(webDetectTimer);
+  const url = $("p-baseurl")?.value.trim() || "";
+  const key = $("p-apikey")?.value.trim() || "";
+  if (!/^https?:\/\/\S+/i.test(url)) return;
+  if (!key && !/localhost|127\.0\.0\.1|:11434/i.test(url)) return;
+  webDetectTimer = setTimeout(() => {
+    webDetectTimer = null;
+    detectWebProviderModels(true);
+  }, 700);
+}
+
+$("btn-prov-detect")?.addEventListener("click", () => detectWebProviderModels(false));
+$("p-baseurl")?.addEventListener("input", scheduleWebModelDetect);
+$("p-apikey")?.addEventListener("input", scheduleWebModelDetect);
+$("p-protocol")?.addEventListener("change", scheduleWebModelDetect);
+$("btn-p-use-text")?.addEventListener("click", () => {
+  const v = $("p-model-quick")?.value;
+  if (v) $("p-text-model").value = v;
+});
+$("btn-p-use-vision")?.addEventListener("click", () => {
+  const v = $("p-model-quick")?.value;
+  if (v) $("p-vision-model").value = v;
+});
 $("btn-open-providers").addEventListener("click", () => {
   state.editingProviderId = state.activeProviderId || state.providers[0]?.id;
   loadProviderForm(state.providers.find((x) => x.id === state.editingProviderId));

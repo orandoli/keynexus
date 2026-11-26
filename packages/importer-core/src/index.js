@@ -8,7 +8,7 @@
  */
 
 import { extractFilePayload, bytesToBase64 } from "./extractors.js";
-import { PRESET_PROVIDERS, callAiProvider, testProviderConnection } from "./providers.js";
+import { PRESET_PROVIDERS, callAiProvider, testProviderConnection, fetchProviderModels } from "./providers.js";
 import { extractJsonFromModelOutput, normalizeAndCompareRecords, normalizeSingleRecord } from "./normalizer.js";
 
 export {
@@ -17,6 +17,7 @@ export {
   bytesToBase64,
   callAiProvider,
   testProviderConnection,
+  fetchProviderModels,
   extractJsonFromModelOutput,
   normalizeAndCompareRecords,
   normalizeSingleRecord,

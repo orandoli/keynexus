@@ -551,10 +551,25 @@
               </div>
               <label class="field"><span>Base URL *</span><input id="p-baseurl" type="url" spellcheck="false" required /></label>
               <label class="check-row"><input id="p-exact" type="checkbox" /><span>完整精确端点</span></label>
-              <label class="field"><span>API Key</span><input id="p-apikey" type="password" spellcheck="false" /></label>
+              <label class="field">
+                <span>API Key</span>
+                <div class="inline-row">
+                  <input id="p-apikey" type="password" spellcheck="false" />
+                  <button type="button" class="ghost small" id="btn-prov-detect" title="根据 Base URL 与 API Key 拉取可用模型">🔍 检测模型</button>
+                </div>
+              </label>
               <div class="grid-two">
-                <label class="field"><span>文本模型 *</span><input id="p-text-model" type="text" required /></label>
-                <label class="field"><span>视觉模型</span><input id="p-vision-model" type="text" /></label>
+                <label class="field"><span>文本模型 *</span><input id="p-text-model" type="text" list="p-models-datalist" required /></label>
+                <label class="field"><span>视觉模型</span><input id="p-vision-model" type="text" list="p-models-datalist" /></label>
+              </div>
+              <datalist id="p-models-datalist"></datalist>
+              <div id="p-model-picker-row" class="field" hidden>
+                <span>已检测到的可用模型（选中后点击填入）</span>
+                <div class="inline-row">
+                  <select id="p-model-quick"></select>
+                  <button type="button" class="ghost small" id="btn-p-use-text">设为文本</button>
+                  <button type="button" class="ghost small" id="btn-p-use-vision">设为视觉</button>
+                </div>
               </div>
               <label class="field"><span>自定义请求头 JSON</span><input id="p-headers" type="text" spellcheck="false" /></label>
               <div class="detail-cta">

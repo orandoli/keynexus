@@ -328,3 +328,134 @@ export async function testProviderConnection(provider, opts = {}) {
   );
   return { ok: true, sample: reply.slice(0, 120) };
 }
+
+function isVisionModelId(id) {
+  return /(?:vl|vision|gpt-4o|gpt-4\.1|gpt-5|gemini|claude-[34]|sonnet|opus|haiku|pixtral|llava|glm-[45]v|minicpm-v|(?:^|[-_/])o[134](?:$|[-_/]))/i.test(
+    String(id || ""),
+  );
+}
+
+function isAuxNonChatModelId(id) {
+  return /(?:embedding|embed|whisper|tts|dall-e|moderation|rerank|bge-|text-embedding)/i.test(String(id || ""));
+}
+
+function buildModelsEndpoints(protocol, baseUrl) {
+  const clean = String(baseUrl || "").trim().replace(/\/+$/, "");
+  if (!clean) throw new Error("提供商 Base URL 不能为空");
+
+  if (protocol === "gemini") {
+    let base = clean
+      .replace(/\/models\/[^/]+:generateContent$/i, "")
+      .replace(/:generateContent$/i, "")
+      .replace(/\/models$/i, "");
+    if (!/\/v1(?:beta)?$/i.test(base)) base += "/v1beta";
+    return [`${base}/models`];
+  }
+
+  if (protocol === "anthropic") {
+    const base = clean.replace(/\/messages$/i, "").replace(/\/models$/i, "");
+    return [/\/v\d+$/i.test(base) ? `${base}/models` : `${base}/v1/models`];
+  }
+
+  const base = clean
+    .replace(/\/chat\/completions$/i, "")
+    .replace(/\/completions$/i, "")
+    .replace(/\/models$/i, "");
+  if (/\/v\d+$/i.test(base) || /\/compatible-mode\/v\d+$/i.test(base)) {
+    return [`${base}/models`];
+  }
+  return [`${base}/v1/models`, `${base}/models`, `${base}/api/tags`];
+}
+
+/**
+ * 自动探测模型提供商的可用模型列表，并智能推荐文本/视觉模型 ID。
+ * 支持 OpenAI 兼容 (/v1/models, /models)、Ollama (/api/tags)、Gemini (/v1beta/models)、Anthropic (/v1/models)。
+ */
+export async function fetchProviderModels(provider, opts = {}) {
+  const fetchFn = opts.fetchImpl || ((...args) => fetch(...args));
+  const protocol = provider?.protocol || "openai-compatible";
+  const apiKey = String(provider?.apiKey || "").trim();
+  const extraHeaders = parseCustomHeaders(provider?.customHeaders);
+
+  const headers = { Accept: "application/json", ...extraHeaders };
+  if (protocol === "gemini") {
+    if (apiKey) headers["x-goog-api-key"] = apiKey;
+  } else if (protocol === "anthropic") {
+    if (apiKey) headers["x-api-key"] = apiKey;
+    headers["anthropic-version"] = headers["anthropic-version"] || "2023-06-01";
+  } else if (apiKey) {
+    headers.Authorization = "Bearer " + apiKey;
+  }
+
+  const endpoints = buildModelsEndpoints(protocol, provider?.baseUrl);
+  let lastErr = null;
+
+  for (let i = 0; i < endpoints.length; i++) {
+    const endpoint = endpoints[i];
+    let res;
+    try {
+      res = await fetchFn(endpoint, { method: "GET", headers });
+    } catch (e) {
+      if (
+        typeof window !== "undefined" &&
+        window.location?.protocol === "https:" &&
+        /^http:\/\//i.test(endpoint)
+      ) {
+        throw new Error(
+          `浏览器安全策略拦截了 HTTPS 页面直接请求 HTTP 地址 (${endpoint})，请改用 HTTPS 地址或同源反向代理（如 /ai-proxy/8788）`,
+        );
+      }
+      throw new Error(`连接模型列表接口失败 (${endpoint})：${e?.message || e}`);
+    }
+
+    const rawText = await res.text();
+    let json = null;
+    try {
+      json = JSON.parse(rawText);
+    } catch {
+      json = null;
+    }
+
+    if (!res.ok) {
+      const errMsg =
+        json?.error?.message ||
+        json?.message ||
+        (typeof json?.error === "string" && json.error) ||
+        rawText.slice(0, 180) ||
+        `HTTP ${res.status}`;
+      lastErr = new Error(`获取模型列表失败 (${res.status})：${errMsg}`);
+      if ((res.status === 404 || res.status === 405) && i < endpoints.length - 1) {
+        continue;
+      }
+      throw lastErr;
+    }
+
+    let rawIds = [];
+    if (Array.isArray(json?.data)) {
+      rawIds = json.data.map((m) => (typeof m === "string" ? m : m?.id || "")).filter(Boolean);
+    } else if (Array.isArray(json?.models)) {
+      if (protocol === "gemini") {
+        rawIds = json.models
+          .filter((m) => !Array.isArray(m?.supportedGenerationMethods) || m.supportedGenerationMethods.includes("generateContent"))
+          .map((m) => String(m?.name || m?.id || "").replace(/^models\//, ""))
+          .filter(Boolean);
+      } else {
+        rawIds = json.models
+          .map((m) => String(m?.name || m?.model || m?.id || "").replace(/^models\//, ""))
+          .filter(Boolean);
+      }
+    }
+
+    const models = Array.from(new Set(rawIds.map((s) => String(s).trim()).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b),
+    );
+    if (models.length) {
+      const suggestedText = models.find((id) => !isAuxNonChatModelId(id)) || models[0];
+      const suggestedVision = models.find((id) => !isAuxNonChatModelId(id) && isVisionModelId(id)) || "";
+      return { models, suggestedText, suggestedVision, endpoint };
+    }
+    lastErr = new Error("接口连通成功，但未返回任何可用模型");
+  }
+
+  throw lastErr || new Error("未检测到可用模型");
+}

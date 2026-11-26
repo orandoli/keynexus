@@ -12,7 +12,7 @@ import { generateTotp, parseTotp } from "./lib/totp.js";
 import { resolveItemScope, isScopeApplicable, SCOPE_LABELS } from "./lib/matcher.js";
 import { generatePassword, estimateStrength } from "./lib/generator.js";
 import { RealtimeHub } from "./lib/realtime.js";
-import { PRESET_PROVIDERS, parsePasswordFile, testProviderConnection } from "./lib/importer/index.js";
+import { PRESET_PROVIDERS, parsePasswordFile, testProviderConnection, fetchProviderModels } from "./lib/importer/index.js";
 import { checkClientUpdate } from "./lib/updater.js";
 
 const native = window.PwdsvAndroid || null;
@@ -1698,6 +1698,12 @@ function populateProviderSettingsUI() {
   loadProviderIntoMobileForm(state.providers.find((x) => x.id === editingMobProvId));
 }
 
+function resetMobileDetectedModels() {
+  if ($("mp-models-datalist")) $("mp-models-datalist").textContent = "";
+  if ($("mp-model-quick")) $("mp-model-quick").textContent = "";
+  if ($("mp-model-picker-row")) $("mp-model-picker-row").hidden = true;
+}
+
 function loadProviderIntoMobileForm(p) {
   if (!p) return;
   $("mp-name").value = p.name || "";
@@ -1708,7 +1714,86 @@ function loadProviderIntoMobileForm(p) {
   $("mp-text-model").value = p.textModel || "";
   $("mp-vision-model").value = p.visionModel || "";
   $("mp-headers").value = p.customHeaders || "";
+  if ($("mp-msg")) $("mp-msg").textContent = "";
+  resetMobileDetectedModels();
 }
+
+let mobDetectTimer = null;
+async function detectMobileProviderModels(silent = false) {
+  const baseUrl = $("mp-url")?.value.trim() || "";
+  if (!baseUrl) {
+    if (!silent && $("mp-msg")) $("mp-msg").textContent = "请先填写 Base URL";
+    return;
+  }
+  const msg = $("mp-msg");
+  const btn = $("btn-mp-detect");
+  if (!silent && msg) msg.textContent = "正在检测可用模型…";
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetchProviderModels(
+      {
+        protocol: $("mp-proto").value,
+        baseUrl,
+        apiKey: $("mp-key").value.trim(),
+        customHeaders: $("mp-headers").value.trim(),
+      },
+      { fetchImpl: makeMobileFetch(Boolean(state.session?.insecureTls)) },
+    );
+    const dl = $("mp-models-datalist");
+    const sel = $("mp-model-quick");
+    if (dl) {
+      dl.textContent = "";
+      for (const id of res.models) {
+        const opt = document.createElement("option");
+        opt.value = id;
+        dl.appendChild(opt);
+      }
+    }
+    if (sel) {
+      sel.textContent = "";
+      for (const id of res.models) {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = id;
+        sel.appendChild(opt);
+      }
+      if (res.suggestedText) sel.value = res.suggestedText;
+    }
+    if ($("mp-model-picker-row")) $("mp-model-picker-row").hidden = !res.models.length;
+    if (!$("mp-text-model").value.trim() && res.suggestedText) $("mp-text-model").value = res.suggestedText;
+    if (!$("mp-vision-model").value.trim() && res.suggestedVision) $("mp-vision-model").value = res.suggestedVision;
+    if (msg) msg.textContent = `✓ 检测到 ${res.models.length} 个模型（已自动填入推荐模型）`;
+  } catch (err) {
+    if (!silent && msg) msg.textContent = "✗ 模型检测失败：" + (err?.message || err);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function scheduleMobileModelDetect() {
+  if (mobDetectTimer) clearTimeout(mobDetectTimer);
+  const url = $("mp-url")?.value.trim() || "";
+  const key = $("mp-key")?.value.trim() || "";
+  if (!/^https?:\/\/\S+/i.test(url)) return;
+  if (!key && !/localhost|127\.0\.0\.1|10\.0\.2\.2|:11434/i.test(url)) return;
+  mobDetectTimer = setTimeout(() => {
+    mobDetectTimer = null;
+    detectMobileProviderModels(true);
+  }, 700);
+}
+
+$("btn-mp-detect")?.addEventListener("click", () => detectMobileProviderModels(false));
+$("mp-url")?.addEventListener("input", scheduleMobileModelDetect);
+$("mp-key")?.addEventListener("input", scheduleMobileModelDetect);
+$("mp-proto")?.addEventListener("change", scheduleMobileModelDetect);
+$("btn-mp-use-text")?.addEventListener("click", () => {
+  const v = $("mp-model-quick")?.value;
+  if (v) $("mp-text-model").value = v;
+});
+$("btn-mp-use-vision")?.addEventListener("click", () => {
+  const v = $("mp-model-quick")?.value;
+  if (v) $("mp-vision-model").value = v;
+});
 
 $("mp-list").addEventListener("change", () => {
   editingMobProvId = $("mp-list").value;

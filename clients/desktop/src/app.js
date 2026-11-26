@@ -24,6 +24,7 @@ import {
   PRESET_PROVIDERS,
   parsePasswordFile,
   testProviderConnection,
+  fetchProviderModels,
 } from "./lib/importer/index.js";
 import { checkClientUpdate } from "./lib/updater.js";
 
@@ -1585,6 +1586,12 @@ function renderProvidersManagerList() {
   }
 }
 
+function resetDesktopDetectedModels() {
+  if ($("p-models-datalist")) $("p-models-datalist").textContent = "";
+  if ($("p-model-quick")) $("p-model-quick").textContent = "";
+  if ($("p-model-picker-row")) $("p-model-picker-row").hidden = true;
+}
+
 function selectProviderForEdit(id) {
   const p = state.providers.find((x) => x.id === id);
   if (!p) return;
@@ -1603,6 +1610,7 @@ function selectProviderForEdit(id) {
         ? JSON.stringify(p.customHeaders)
         : "";
   $("prov-msg").textContent = "";
+  resetDesktopDetectedModels();
   renderProvidersManagerList();
 }
 
@@ -1631,6 +1639,7 @@ $("btn-prov-new-custom").addEventListener("click", () => {
   $("p-vision-model").value = "";
   $("p-headers").value = "";
   $("prov-msg").textContent = "请填写自定义网关信息后点击保存";
+  resetDesktopDetectedModels();
   renderProvidersManagerList();
   $("p-name").focus();
 });
@@ -1648,6 +1657,84 @@ $("btn-prov-add-preset").addEventListener("click", () => {
   $("p-vision-model").value = tpl.visionModel || "";
   $("p-headers").value = "";
   $("prov-msg").textContent = `已载入「${tpl.name}」模板，填入 API Key 即可保存`;
+  resetDesktopDetectedModels();
+});
+
+let desktopDetectTimer = null;
+async function detectDesktopProviderModels(silent = false) {
+  const baseUrl = $("p-baseurl")?.value.trim() || "";
+  if (!baseUrl) {
+    if (!silent) $("prov-msg").textContent = "请先填写 API Base URL";
+    return;
+  }
+  const msgEl = $("prov-msg");
+  const btn = $("btn-prov-detect");
+  if (!silent) msgEl.textContent = "正在检测可用模型…";
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetchProviderModels(
+      {
+        protocol: $("p-protocol").value,
+        baseUrl,
+        apiKey: $("p-apikey").value.trim(),
+        customHeaders: $("p-headers").value.trim(),
+      },
+      { fetchImpl: makeTauriFetch(Boolean(state.session?.insecureTls ?? state.prefs.insecureTls)) },
+    );
+    const dl = $("p-models-datalist");
+    const sel = $("p-model-quick");
+    if (dl) {
+      dl.textContent = "";
+      for (const id of res.models) {
+        const opt = document.createElement("option");
+        opt.value = id;
+        dl.appendChild(opt);
+      }
+    }
+    if (sel) {
+      sel.textContent = "";
+      for (const id of res.models) {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = id;
+        sel.appendChild(opt);
+      }
+      if (res.suggestedText) sel.value = res.suggestedText;
+    }
+    if ($("p-model-picker-row")) $("p-model-picker-row").hidden = !res.models.length;
+    if (!$("p-text-model").value.trim() && res.suggestedText) $("p-text-model").value = res.suggestedText;
+    if (!$("p-vision-model").value.trim() && res.suggestedVision) $("p-vision-model").value = res.suggestedVision;
+    msgEl.textContent = `✓ 检测到 ${res.models.length} 个模型（已自动填入推荐模型，也可从下方列表切换）`;
+  } catch (err) {
+    if (!silent) msgEl.textContent = `✗ 模型检测失败：${err?.message || err}`;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function scheduleDesktopModelDetect() {
+  if (desktopDetectTimer) clearTimeout(desktopDetectTimer);
+  const url = $("p-baseurl")?.value.trim() || "";
+  const key = $("p-apikey")?.value.trim() || "";
+  if (!/^https?:\/\/\S+/i.test(url)) return;
+  if (!key && !/localhost|127\.0\.0\.1|:11434/i.test(url)) return;
+  desktopDetectTimer = setTimeout(() => {
+    desktopDetectTimer = null;
+    detectDesktopProviderModels(true);
+  }, 700);
+}
+
+$("btn-prov-detect")?.addEventListener("click", () => detectDesktopProviderModels(false));
+$("p-baseurl")?.addEventListener("input", scheduleDesktopModelDetect);
+$("p-apikey")?.addEventListener("input", scheduleDesktopModelDetect);
+$("p-protocol")?.addEventListener("change", scheduleDesktopModelDetect);
+$("btn-p-use-text")?.addEventListener("click", () => {
+  const v = $("p-model-quick")?.value;
+  if (v) $("p-text-model").value = v;
+});
+$("btn-p-use-vision")?.addEventListener("click", () => {
+  const v = $("p-model-quick")?.value;
+  if (v) $("p-vision-model").value = v;
 });
 
 function collectProviderForm() {
