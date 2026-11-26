@@ -334,3 +334,54 @@ export async function decryptPrivateKey(userKey, encPrivateKey) {
   }
   return decryptBytes(userKey, encPrivateKey);
 }
+
+/**
+ * 零知识本地注册：派生 masterKey / masterPasswordHash，生成随机 64B userKey 与 RSA-2048 密钥对，
+ * 产出可直接提交至 POST /identity/accounts/register 的请求体（原始主密码永不离开本机）。
+ */
+export async function makeRegisterPayload({
+  email,
+  password,
+  name = "",
+  masterPasswordHint = "",
+  kdfIterations = 600000,
+}) {
+  const normEmail = String(email || "").trim().toLowerCase();
+  if (!normEmail) throw new Error("请填写有效的账号邮箱");
+  if (String(password || "").length < 8) throw new Error("主密码长度至少 8 位");
+
+  const iterations = Number(kdfIterations) || 600000;
+  const masterKey = await deriveMasterKey(password, normEmail, { kdf: KdfType.Pbkdf2, iterations });
+  const masterPasswordHash = await hashMasterPassword(masterKey, password);
+  const stretched = await stretchKey(masterKey);
+
+  const userKeyBytes = randomBytes(64);
+  const userKey = new SymmetricCryptoKey(userKeyBytes);
+  const key = await encryptBytes(stretched, userKeyBytes);
+
+  const rsaPair = await crypto.subtle.generateKey(
+    {
+      name: "RSA-OAEP",
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-1",
+    },
+    true,
+    ["encrypt", "decrypt"],
+  );
+  const spki = new Uint8Array(await crypto.subtle.exportKey("spki", rsaPair.publicKey));
+  const pkcs8 = new Uint8Array(await crypto.subtle.exportKey("pkcs8", rsaPair.privateKey));
+  const publicKey = bytesToB64(spki);
+  const encryptedPrivateKey = await encryptBytes(userKey, pkcs8);
+
+  return {
+    email: normEmail,
+    name: name ? String(name).trim().slice(0, 50) : null,
+    masterPasswordHash,
+    masterPasswordHint: masterPasswordHint ? String(masterPasswordHint).trim() : null,
+    key,
+    kdf: KdfType.Pbkdf2,
+    kdfIterations: iterations,
+    keys: { publicKey, encryptedPrivateKey },
+  };
+}

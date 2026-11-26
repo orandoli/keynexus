@@ -103,9 +103,11 @@ export class PwdsvApi {
     }
 
     if (!res.ok) {
+      const textErr = typeof data === "string" ? data.trim() : "";
+      const isHtml = textErr.startsWith("<");
       const msg =
-        (data && (data.error_description || data.message || data.error)) ||
-        (typeof data === "string" && data) ||
+        (data && (data.error_description || data.message || data.error || data.errorModel?.message)) ||
+        (!isHtml && textErr) ||
         "HTTP " + res.status;
       throw new ApiError(String(msg), res.status, data);
     }
@@ -188,6 +190,40 @@ export class PwdsvApi {
 
   async config() {
     return this.request("/api/config");
+  }
+
+  async register(payload) {
+    let tokenRes;
+    try {
+      tokenRes = await this.request("/identity/accounts/register/send-verification-email", {
+        method: "POST",
+        body: {
+          email: payload.email,
+          name: payload.name || "",
+        },
+      });
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        return this.request("/identity/accounts/register", {
+          method: "POST",
+          body: payload,
+        });
+      }
+      throw err;
+    }
+
+    const emailVerificationToken = typeof tokenRes === "string" ? tokenRes.trim() : "";
+    if (!emailVerificationToken) {
+      throw new ApiError("服务端已开启邮箱验证，请前往邮箱点击验证链接完成注册", 202);
+    }
+
+    return this.request("/identity/accounts/register/finish", {
+      method: "POST",
+      body: {
+        ...payload,
+        emailVerificationToken,
+      },
+    });
   }
 
   async createCipher(accessToken, payload) {
