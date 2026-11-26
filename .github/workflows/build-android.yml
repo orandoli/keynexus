@@ -23,8 +23,18 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Install Android SDK 35 components
+        shell: bash
+        run: |
+          SDK_DIR="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$SDK_DIR" >> "$GITHUB_ENV"
+          SDKMGR="$(command -v sdkmanager || ls -d "$SDK_DIR"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -n 1)"
+          if [ -z "$SDKMGR" ]; then
+            echo "sdkmanager not found under $SDK_DIR" >&2
+            exit 1
+          fi
+          yes | "$SDKMGR" --licenses >/dev/null || true
+          "$SDKMGR" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Sync shared crypto and AI importer modules
         shell: bash
