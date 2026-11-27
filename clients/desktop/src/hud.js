@@ -4,6 +4,53 @@
  * 原软件密码框焦点不受影响，点「键入密码」直接通过 Win32 SendInput 输入到目标窗口。
  */
 
+const LOCAL_PREFS_KEY = "pwdsv_desktop_prefs_v2";
+const VALID_THEMES = new Set(["system", "dark", "light"]);
+const systemDarkMq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+const SVG_ICONS = {
+  plus: '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  lock: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+};
+
+function svgIcon(name, className = "ic sm") {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("class", className);
+  svg.innerHTML = SVG_ICONS[name] || "";
+  return svg;
+}
+
+function loadThemePref() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LOCAL_PREFS_KEY) || "{}");
+    return VALID_THEMES.has(raw.theme) ? raw.theme : "dark";
+  } catch {
+    return "dark";
+  }
+}
+
+function resolveTheme(themePref = loadThemePref()) {
+  if (themePref === "light") return "light";
+  if (themePref === "dark") return "dark";
+  return systemDarkMq?.matches ? "dark" : "light";
+}
+
+function applyTheme(themePref = loadThemePref()) {
+  const resolved = resolveTheme(themePref);
+  document.documentElement.dataset.theme = resolved;
+  return resolved;
+}
+
+applyTheme();
+window.addEventListener("storage", (e) => {
+  if (!e.key || e.key === LOCAL_PREFS_KEY) applyTheme(loadThemePref());
+});
+systemDarkMq?.addEventListener?.("change", () => {
+  if (loadThemePref() === "system") applyTheme("system");
+});
+
 const tauriCore = window.__TAURI__?.core;
 const tauriEvent = window.__TAURI__?.event;
 const invoke = (cmd, args) => tauriCore.invoke(cmd, args);
@@ -78,6 +125,7 @@ function startCountdown() {
 
 function renderPayload(payload) {
   if (!payload) return;
+  applyTheme(loadThemePref());
   currentPayload = payload;
   el.exe.textContent = payload.exe || "应用";
 
@@ -98,7 +146,14 @@ function renderPayload(payload) {
     el.unmatchedText.textContent = payload.locked
       ? `检测到 ${payload.exe}，请先解锁 PWDSV 密码库`
       : `当前前台程序 ${payload.exe} 尚未绑定密码`;
-    $("btn-hud-add-app").textContent = payload.locked ? "打开密码库解锁" : "＋ 为此程序提交密码";
+    const addBtn = $("btn-hud-add-app");
+    if (addBtn) {
+      addBtn.textContent = "";
+      addBtn.append(
+        svgIcon(payload.locked ? "lock" : "plus", "ic sm"),
+        document.createTextNode(payload.locked ? "打开密码库解锁" : "为此程序提交密码"),
+      );
+    }
   }
 
   startCountdown();

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -10,6 +10,14 @@
     <!-- ==================== 1. 登录与快捷解锁屏 ==================== -->
     <section id="auth-screen" class="auth-screen">
       <div class="auth-ambient"></div>
+      <button type="button" class="theme-float-btn" id="btn-auth-theme" title="切换深浅主题" aria-label="切换深浅主题">
+        <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+        </svg>
+        <span id="auth-theme-label">浅色</span>
+      </button>
+
       <div class="auth-card">
         <div class="auth-brand">
           <div class="brand-mark">
@@ -92,21 +100,42 @@
             <b>KeyNexus</b>
             <span id="sidebar-user-email">已加密连接</span>
           </div>
-          <span class="watch-pill" id="watch-indicator" title="Win32 窗口监听状态">● 守护中</span>
+          <span class="watch-pill" id="watch-indicator" title="Win32 窗口监听状态">
+            <i class="watch-dot" aria-hidden="true"></i>
+            <span>守护中</span>
+          </span>
+          <button type="button" class="icon-btn" id="btn-sidebar-theme" title="切换深浅主题" aria-label="切换深浅主题">
+            <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+            </svg>
+          </button>
         </div>
 
         <div class="sidebar-cta-group">
           <button type="button" class="primary full icon-cta" id="btn-new-item">
-            <span>＋ 提交新密码</span>
+            <span class="nav-lbl">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>提交新密码</span>
+            </span>
             <kbd>Ctrl+N</kbd>
           </button>
           <button type="button" class="ai-cta full" id="btn-open-importer">
-            <span>✨ 文件 / 截图 AI 导密</span>
+            <span class="nav-lbl">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z" />
+                <path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z" />
+              </svg>
+              <span>文件 / 截图 AI 导密</span>
+            </span>
           </button>
         </div>
 
         <div class="sidebar-section-title">按适用终端筛选</div>
-        <nav class="nav-group">
+        <nav class="nav-group nav-filters">
           <button type="button" class="nav-item active" data-filter="all">
             <span class="nav-lbl"><i class="dot-ic all"></i>全部密码</span><em id="cnt-all">0</em>
           </button>
@@ -134,10 +163,36 @@
         <nav class="nav-group folders-nav" id="folders-nav"></nav>
 
         <div class="sidebar-footer">
-          <button type="button" class="tool-btn" id="btn-open-providers" title="配置与自定义 AI 模型提供商">🤖 模型源</button>
-          <button type="button" class="tool-btn" id="btn-sync-now" title="立即与服务器同步">⟳ 同步</button>
-          <button type="button" class="tool-btn" id="btn-open-settings" title="PIN 与桌面监听设置">⚙ 设置</button>
-          <button type="button" class="tool-btn lock" id="btn-lock-vault" title="立即锁定密码库">🔒 锁定</button>
+          <button type="button" class="tool-btn" id="btn-open-providers" title="配置与自定义 AI 模型提供商">
+            <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="4" y="4" width="16" height="16" rx="2" />
+              <rect x="9" y="9" width="6" height="6" />
+              <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3" />
+            </svg>
+            <span>模型源</span>
+          </button>
+          <button type="button" class="tool-btn" id="btn-sync-now" title="立即与服务器同步">
+            <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+            <span>同步</span>
+          </button>
+          <button type="button" class="tool-btn" id="btn-open-settings" title="PIN 与桌面监听设置">
+            <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+            <span>设置</span>
+          </button>
+          <button type="button" class="tool-btn lock" id="btn-lock-vault" title="立即锁定密码库">
+            <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            <span>锁定</span>
+          </button>
         </div>
       </aside>
 
@@ -145,33 +200,50 @@
       <section class="list-pane">
         <div class="list-header">
           <div class="search-box">
-            <svg class="search-ic" viewBox="0 0 20 20" width="14" height="14">
-              <path d="M8.5 3a5.5 5.5 0 104.38 8.82l3.65 3.65a.75.75 0 101.06-1.06l-3.65-3.65A5.5 5.5 0 008.5 3zm-4 5.5a4 4 0 118 0 4 4 0 01-8 0z" fill="currentColor" />
+            <svg class="search-ic ic sm" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
             <input id="vault-search" type="search" placeholder="搜索名称、账号、域名、.exe…" spellcheck="false" />
             <kbd>Ctrl+F</kbd>
           </div>
           <div class="list-submeta">
-            <span id="list-filter-title">全部密码</span>
-            <span id="list-result-count" class="muted">0 项</span>
+            <span id="list-filter-title" class="filter-title-row">全部密码</span>
+            <span id="list-result-count" class="muted tabular-nums">0 项</span>
           </div>
         </div>
 
         <ul id="vault-list" class="vault-list"></ul>
 
         <div id="vault-empty" class="empty-pane" hidden>
-          <div class="empty-icon">🔐</div>
+          <div class="empty-icon">
+            <svg class="ic xl" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+          </div>
           <p>当前分类下还没有密码记录</p>
           <div class="inline-row" style="justify-content: center">
-            <button type="button" class="ghost small" id="btn-empty-create">＋ 手动录入</button>
-            <button type="button" class="ghost small" id="btn-empty-ai">✨ 文件 AI 导入</button>
+            <button type="button" class="ghost small" id="btn-empty-create">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>手动录入</span>
+            </button>
+            <button type="button" class="ghost small" id="btn-empty-ai">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z" />
+              </svg>
+              <span>文件 AI 导入</span>
+            </button>
           </div>
         </div>
       </section>
 
       <!-- 右栏：主画布 -->
       <main class="detail-pane">
-        <!-- 欢迎仪表盘（空状态不再单调，直观展示四端概况与快捷卡片） -->
+        <!-- 欢迎仪表盘 -->
         <div id="pane-welcome" class="welcome-dashboard">
           <div class="dash-hero">
             <h2>欢迎回来，密码守护已就绪</h2>
@@ -180,22 +252,50 @@
 
           <div class="bento-stats">
             <div class="stat-tile" data-jump="universal">
-              <span class="st-tag uni">🌐 三端通用</span>
+              <span class="st-tag uni">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="2" y1="12" x2="22" y2="12" />
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                </svg>
+                <span>三端通用</span>
+              </span>
               <strong id="dash-cnt-uni">0</strong>
               <small>网页 · 电脑 · 手机同号互通</small>
             </div>
             <div class="stat-tile" data-jump="desktop">
-              <span class="st-tag desk">💻 电脑端专属</span>
+              <span class="st-tag desk">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="2" y="3" width="20" height="14" rx="2" />
+                  <line x1="8" y1="21" x2="16" y2="21" />
+                  <line x1="12" y1="17" x2="12" y2="21" />
+                </svg>
+                <span>电脑端专属</span>
+              </span>
               <strong id="dash-cnt-desk">0</strong>
               <small>打开 .exe 自动右上角提示</small>
             </div>
             <div class="stat-tile" data-jump="web">
-              <span class="st-tag web">🕸 网页端专属</span>
+              <span class="st-tag web">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="4" width="18" height="16" rx="2" />
+                  <line x1="3" y1="9" x2="21" y2="9" />
+                  <circle cx="7" cy="6.5" r=".5" />
+                  <circle cx="10" cy="6.5" r=".5" />
+                </svg>
+                <span>网页端专属</span>
+              </span>
               <strong id="dash-cnt-web">0</strong>
               <small>浏览器插件自动填表抓密</small>
             </div>
             <div class="stat-tile" data-jump="mobile">
-              <span class="st-tag mob">📱 手机端专属</span>
+              <span class="st-tag mob">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="5" y="2" width="14" height="20" rx="2" />
+                  <line x1="12" y1="18" x2="12.01" y2="18" />
+                </svg>
+                <span>手机端专属</span>
+              </span>
               <strong id="dash-cnt-mob">0</strong>
               <small>Android 系统级自动填充</small>
             </div>
@@ -213,13 +313,13 @@
               <div class="sc-keys"><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>N</kbd></div>
               <div>
                 <b>为当前软件随手记密码</b>
-                <p>自动抓取刚才前台软件的 `.exe` 进程名与窗口标题，填完密码回车即绑定。</p>
+                <p>自动抓取刚才前台软件的 <code>.exe</code> 进程名与窗口标题，填完密码回车即绑定。</p>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 条目详情页（精致分组卡片 + 彩色字符着色 + SVG 动态码进度环） -->
+        <!-- 条目详情页 -->
         <div id="pane-detail" class="content-shell" hidden>
           <div class="detail-hero-card">
             <div class="hero-left">
@@ -227,22 +327,44 @@
               <div class="hero-titles">
                 <div class="hero-title-row">
                   <h2 id="d-name"></h2>
-                  <button type="button" class="fav-toggle" id="btn-d-fav" title="收藏 / 取消收藏">☆</button>
+                  <button type="button" class="fav-toggle" id="btn-d-fav" title="收藏 / 取消收藏" aria-label="收藏 / 取消收藏">
+                    <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                    </svg>
+                  </button>
                 </div>
                 <div id="d-badges" class="badges"></div>
               </div>
             </div>
             <div class="head-actions">
-              <button type="button" class="ghost small" id="btn-d-edit">✎ 编辑</button>
+              <button type="button" class="ghost small" id="btn-d-edit">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+                <span>编辑</span>
+              </button>
               <button type="button" class="ghost small danger" id="btn-d-delete">删除</button>
             </div>
           </div>
 
           <!-- 主快捷操作栏 -->
           <div class="quick-action-strip">
-            <button type="button" class="primary" id="btn-d-autotype">⌨ 键入密码到上一窗口</button>
+            <button type="button" class="primary" id="btn-d-autotype">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10" />
+              </svg>
+              <span>键入密码到上一窗口</span>
+            </button>
             <button type="button" class="ghost" id="btn-d-autotype-both">键入「账号 + Tab + 密码」</button>
-            <button type="button" class="ghost" data-copy="password">📋 安全复制密码</button>
+            <button type="button" class="ghost" data-copy="password">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+              <span>安全复制密码</span>
+            </button>
           </div>
 
           <!-- 核心凭据分组 -->
@@ -279,7 +401,7 @@
                       <circle class="ring-bg" cx="12" cy="12" r="9" />
                       <circle class="ring-fg" id="d-totp-circle" cx="12" cy="12" r="9" stroke-dasharray="56.55" stroke-dashoffset="0" />
                     </svg>
-                    <span id="d-totp-left" class="muted"></span>
+                    <span id="d-totp-left" class="muted tabular-nums"></span>
                   </div>
                 </div>
               </div>
@@ -307,7 +429,13 @@
               <h2 style="margin: 0; font-size: 18px">Authenticator 动态码中枢</h2>
               <p class="muted" style="margin: 4px 0 0">所有含两步验证密钥的凭据集中实时刷新，支持一键安全复制或直接键入</p>
             </div>
-            <button type="button" class="primary" id="btn-da-toggle-add">＋ 添加验证器</button>
+            <button type="button" class="primary" id="btn-da-toggle-add">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>添加验证器</span>
+            </button>
           </div>
 
           <form id="da-add-form" class="content-card da-add-form" hidden autocomplete="off">
@@ -333,7 +461,13 @@
               </label>
             </div>
             <div class="detail-cta" style="margin-top: 8px">
-              <button type="submit" class="primary" id="btn-da-save">🔒 本地零知识加密并保存</button>
+              <button type="submit" class="primary" id="btn-da-save">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <span>本地零知识加密并保存</span>
+              </button>
             </div>
             <p id="da-add-err" class="error" hidden></p>
           </form>
@@ -341,9 +475,21 @@
           <div id="da-list" class="da-list"></div>
 
           <div id="da-empty" class="empty-pane" hidden>
-            <div class="empty-icon">⏱</div>
+            <div class="empty-icon">
+              <svg class="ic xl" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="13" r="8" />
+                <path d="M12 9v4l2 2" />
+                <path d="M9 2h6" />
+              </svg>
+            </div>
             <p>暂无 Authenticator 验证器记录</p>
-            <button type="button" class="ghost small" id="btn-da-empty-add">＋ 添加首个验证器</button>
+            <button type="button" class="ghost small" id="btn-da-empty-add">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>添加首个验证器</span>
+            </button>
           </div>
         </div>
 
@@ -365,10 +511,10 @@
             <label class="field">
               <span>适用端口范围（服务端四态分类）</span>
               <select id="f-scope">
-                <option value="universal">🌐 三端统一通用账户（网页+电脑+手机互通）</option>
-                <option value="desktop">💻 仅电脑客户端密码</option>
-                <option value="web">🕸 仅网页端密码</option>
-                <option value="mobile">📱 仅手机端密码</option>
+                <option value="universal">三端统一通用账户（网页+电脑+手机互通）</option>
+                <option value="desktop">仅电脑客户端密码</option>
+                <option value="web">仅网页端密码</option>
+                <option value="mobile">仅手机端密码</option>
               </select>
             </label>
           </div>
@@ -380,33 +526,59 @@
             </label>
             <div class="field">
               <div class="fg-label-line" style="margin-bottom: 4px">
-                <span style="font-size: 11px; color: var(--muted)">密码（纯验证器可留空）</span>
+                <span class="field-sublabel">密码（纯验证器可留空）</span>
                 <span id="f-pwd-strength" class="strength-inline"></span>
               </div>
               <div class="inline-row">
                 <input id="f-password" type="password" placeholder="输入或点右侧生成强密码" />
                 <button type="button" class="ghost small" id="btn-f-eye">显示</button>
-                <button type="button" class="ghost small" id="btn-f-gen" title="生成 20 位随机高强度密码">🎲 生成</button>
+                <button type="button" class="ghost small" id="btn-f-gen" title="生成 20 位随机高强度密码">
+                  <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="3" y="3" width="18" height="18" rx="3" />
+                    <path d="M8.5 8.5h.01M15.5 8.5h.01M12 12h.01M8.5 15.5h.01M15.5 15.5h.01" />
+                  </svg>
+                  <span>生成</span>
+                </button>
               </div>
             </div>
           </div>
 
           <div class="app-picker-box">
             <div class="picker-bar">
-              <span>🖥 快速绑定电脑程序（打开该软件时右上角自动给密码提示）</span>
-              <button type="button" class="ghost small" id="btn-refresh-apps">↻ 刷新运行中程序</button>
+              <span class="head-lbl">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="2" y="3" width="20" height="14" rx="2" />
+                  <line x1="8" y1="21" x2="16" y2="21" />
+                  <line x1="12" y1="17" x2="12" y2="21" />
+                </svg>
+                <span>快速绑定电脑程序（打开该软件时右上角自动给密码提示）</span>
+              </span>
+              <button type="button" class="ghost small" id="btn-refresh-apps">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <polyline points="23 4 23 10 17 10" />
+                  <polyline points="1 20 1 14 7 14" />
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
+                <span>刷新运行中程序</span>
+              </button>
             </div>
             <div class="inline-row">
               <select id="running-apps-select">
                 <option value="">-- 点选当前正在运行的 Windows 程序 --</option>
               </select>
               <input id="app-title-filter" type="text" placeholder="可选：仅窗口标题含关键词时提示（如 *登录*）" />
-              <button type="button" class="ghost small" id="btn-add-app-rule">＋ 添加规则</button>
+              <button type="button" class="ghost small" id="btn-add-app-rule">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                <span>添加规则</span>
+              </button>
             </div>
           </div>
 
           <label class="field">
-            <span>匹配规则列表（每行一条：网址 `https://...` / 电脑程序 `app://进程.exe` / 手机应用 `androidapp://包名`）</span>
+            <span>匹配规则列表（每行一条：网址 <code>https://...</code> / 电脑程序 <code>app://进程.exe</code> / 手机应用 <code>androidapp://包名</code>）</span>
             <textarea id="f-uris" rows="3" placeholder="https://wx.qq.com&#10;app://WeChat.exe&#10;androidapp://com.tencent.mm" spellcheck="false"></textarea>
           </label>
 
@@ -447,21 +619,38 @@
           <p class="error" id="ed-error" hidden></p>
         </form>
 
-        <!-- 多格式文件识别 + AI 智能解析导入台（三步向导式排版） -->
+        <!-- 多格式文件识别 + AI 智能解析导入台 -->
         <div id="pane-importer" class="content-card wide-card" hidden>
           <div class="card-head">
             <div>
-              <h2>✨ 多格式文件识别与 AI 密码导入工作台</h2>
+              <h2 class="head-lbl">
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z" />
+                  <path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z" />
+                </svg>
+                <span>多格式文件识别与 AI 密码导入工作台</span>
+              </h2>
               <p class="muted" style="margin: 3px 0 0">原始文件仅在本机内存中读取并直连你选的模型 API，核对无误后本地零知识加密入库</p>
             </div>
-            <button type="button" class="ghost small" id="btn-imp-manage-providers">🤖 切换 / 自定义模型提供商</button>
+            <button type="button" class="ghost small" id="btn-imp-manage-providers">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="4" y="4" width="16" height="16" rx="2" />
+                <rect x="9" y="9" width="6" height="6" />
+                <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3" />
+              </svg>
+              <span>切换 / 自定义模型提供商</span>
+            </button>
           </div>
 
           <div class="stepper-bar">
             <div class="step-pill active"><b>1</b> 选择文档 / 表格 / 粘贴截图</div>
-            <span class="step-arrow">→</span>
+            <span class="step-arrow" aria-hidden="true">
+              <svg class="ic sm" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6" /></svg>
+            </span>
             <div class="step-pill"><b>2</b> 本机直连 AI 归一提取</div>
-            <span class="step-arrow">→</span>
+            <span class="step-arrow" aria-hidden="true">
+              <svg class="ic sm" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6" /></svg>
+            </span>
             <div class="step-pill"><b>3</b> 核对端口分类并加密上云</div>
           </div>
 
@@ -478,17 +667,69 @@
 
           <div class="dropzone" id="imp-dropzone">
             <div class="format-badges">
-              <span>📊 Excel .xlsx</span>
-              <span>📄 Word .docx</span>
-              <span>📑 PDF 文档</span>
-              <span>📋 CSV / JSON</span>
-              <span>📝 TXT / MD</span>
-              <span>🖼 密码截图 (Ctrl+V)</span>
+              <span>
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <path d="M3 9h18M3 15h18M9 3v18" />
+                </svg>
+                Excel .xlsx
+              </span>
+              <span>
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                </svg>
+                Word .docx
+              </span>
+              <span>
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+                PDF 文档
+              </span>
+              <span>
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <polyline points="16 18 22 12 16 6" />
+                  <polyline points="8 6 2 12 8 18" />
+                </svg>
+                CSV / JSON
+              </span>
+              <span>
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+                TXT / MD
+              </span>
+              <span>
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+                密码截图 (Ctrl+V)
+              </span>
             </div>
             <p class="drop-title">将任意密码文件拖拽到此处，或直接按 <kbd>Ctrl</kbd> + <kbd>V</kbd> 粘贴截图</p>
             <div class="inline-row" style="justify-content: center; margin-top: 12px">
-              <button type="button" class="primary" id="btn-imp-pick-file">📂 选择本地文件开始识别</button>
-              <button type="button" class="ghost" id="btn-imp-toggle-text">📝 粘贴杂乱文字解析</button>
+              <button type="button" class="primary" id="btn-imp-pick-file">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                </svg>
+                <span>选择本地文件开始识别</span>
+              </button>
+              <button type="button" class="ghost" id="btn-imp-toggle-text">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                </svg>
+                <span>粘贴杂乱文字解析</span>
+              </button>
             </div>
             <input id="imp-file-input" type="file" accept=".csv,.tsv,.xlsx,.docx,.pdf,.txt,.md,.json,image/*" hidden />
           </div>
@@ -506,10 +747,10 @@
               <b id="imp-preview-summary">识别结果核对表（可直接点击单元格修改）</b>
               <select id="imp-batch-scope" class="small-select">
                 <option value="">批量设置勾选行的适用端口…</option>
-                <option value="universal">全部设为：🌐 三端通用</option>
-                <option value="web">全部设为：🕸 网页端</option>
-                <option value="desktop">全部设为：💻 电脑端</option>
-                <option value="mobile">全部设为：📱 手机端</option>
+                <option value="universal">全部设为：三端通用</option>
+                <option value="web">全部设为：网页端</option>
+                <option value="desktop">全部设为：电脑端</option>
+                <option value="mobile">全部设为：手机端</option>
               </select>
             </div>
 
@@ -531,7 +772,13 @@
             </div>
 
             <div class="detail-cta">
-              <button type="button" class="primary" id="btn-imp-commit">🔒 本地零知识加密并批量上传到服务器</button>
+              <button type="button" class="primary" id="btn-imp-commit">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <span>本地零知识加密并批量上传到服务器</span>
+              </button>
             </div>
           </div>
         </div>
@@ -540,17 +787,36 @@
         <div id="pane-providers" class="content-card wide-card" hidden>
           <div class="card-head">
             <div>
-              <h2>🤖 AI 模型提供商配置中心</h2>
+              <h2 class="head-lbl">
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="4" y="4" width="16" height="16" rx="2" />
+                  <rect x="9" y="9" width="6" height="6" />
+                  <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3" />
+                </svg>
+                <span>AI 模型提供商配置中心</span>
+              </h2>
               <p class="muted" style="margin: 3px 0 0">API Key 由 Windows DPAPI 绑定本机系统账户加密存储，支持内置预设与任意自定义网关</p>
             </div>
-            <button type="button" class="ghost small" id="btn-prov-back">← 返回导密工作台</button>
+            <button type="button" class="ghost small" id="btn-prov-back">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
+              <span>返回导密工作台</span>
+            </button>
           </div>
 
           <div class="providers-split">
             <div class="prov-left">
               <div class="picker-bar">
                 <span>已保存的模型源</span>
-                <button type="button" class="ghost small" id="btn-prov-new-custom">＋ 自定义提供商</button>
+                <button type="button" class="ghost small" id="btn-prov-new-custom">
+                  <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  <span>自定义提供商</span>
+                </button>
               </div>
               <ul id="prov-list" class="vault-list prov-ul"></ul>
               <div class="field" style="margin-top: 10px">
@@ -583,13 +849,19 @@
               </label>
               <label class="check-row">
                 <input id="p-exact" type="checkbox" />
-                <span>上方地址已是完整精确端点（不再自动追加 `/chat/completions` 等路径）</span>
+                <span>上方地址已是完整精确端点（不再自动追加 <code>/chat/completions</code> 等路径）</span>
               </label>
               <label class="field">
                 <span>API Key（本地 Ollama 等免鉴权服务可留空）</span>
                 <div class="inline-row">
                   <input id="p-apikey" type="password" placeholder="sk-..." spellcheck="false" />
-                  <button type="button" class="ghost small" id="btn-prov-detect" title="根据 Base URL 与 API Key 拉取可用模型">🔍 检测模型</button>
+                  <button type="button" class="ghost small" id="btn-prov-detect" title="根据 Base URL 与 API Key 拉取可用模型">
+                    <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    <span>检测模型</span>
+                  </button>
                 </div>
               </label>
               <div class="grid-two">
@@ -617,7 +889,12 @@
               </label>
               <div class="detail-cta">
                 <button type="submit" class="primary">保存并设为当前模型源</button>
-                <button type="button" class="ghost" id="btn-prov-test">⚡ 测试连通性</button>
+                <button type="button" class="ghost" id="btn-prov-test">
+                  <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  </svg>
+                  <span>测试连通性</span>
+                </button>
                 <button type="button" class="ghost danger" id="btn-prov-delete">删除</button>
               </div>
               <p id="prov-msg" class="muted" style="margin-top: 8px"></p>
@@ -629,18 +906,49 @@
         <div id="pane-settings" class="content-card" hidden>
           <div class="card-head">
             <div class="inline-row">
-              <h2 style="margin: 0">⚙ 桌面守护与安全设置</h2>
-              <span id="st-cur-ver" class="badge universal">v2.1.0</span>
+              <h2 class="head-lbl" style="margin: 0">
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+                <span>桌面守护与安全设置</span>
+              </h2>
+              <span id="st-cur-ver" class="badge universal tabular-nums">v2.2.0</span>
             </div>
             <button type="button" class="ghost small" id="btn-st-close">返回</button>
           </div>
 
-          <h3 style="margin: 0 0 6px; font-size: 14px">🔄 软件版本与一键更新</h3>
+          <label class="field">
+            <span>界面外观主题</span>
+            <select id="st-theme">
+              <option value="system">跟随系统</option>
+              <option value="dark">黑曜石深色</option>
+              <option value="light">陶瓷浅色</option>
+            </select>
+          </label>
+
+          <hr class="sep" />
+
+          <h3 class="head-lbl" style="margin: 0 0 6px; font-size: 14px">
+            <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+            <span>软件版本与一键更新</span>
+          </h3>
           <p class="muted" style="margin: 0 0 8px">支持填 GitHub 仓库（如 <code>user/repo</code>）直接拉取 GitHub Releases，或留空跟随服务器 <code>/client-releases/latest.json</code>。</p>
           <div class="inline-row">
             <input id="st-update-url" type="text" placeholder="填 GitHub 仓库（如 user/repo）或 latest.json 地址（留空跟随服务器）" spellcheck="false" />
             <button type="button" class="ghost" id="btn-st-check-update">检查更新</button>
-            <button type="button" class="primary" id="btn-st-apply-update" hidden>⬇ 一键更新</button>
+            <button type="button" class="primary" id="btn-st-apply-update" hidden>
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <span>一键更新</span>
+            </button>
           </div>
           <p id="st-update-status" class="site-status" style="margin-top: 8px" hidden></p>
 

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
@@ -10,6 +10,14 @@
     <!-- ==================== 1. 手机解锁屏（指纹/面容 + 短 PIN + 主密码） ==================== -->
     <section id="m-auth" class="m-auth">
       <div class="m-ambient"></div>
+      <button type="button" class="m-theme-float-btn" id="btn-m-auth-theme" title="切换深浅主题" aria-label="切换深浅主题">
+        <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+        </svg>
+        <span id="m-auth-theme-label">浅色</span>
+      </button>
+
       <div class="m-auth-box">
         <div class="m-logo-row">
           <div class="m-brand-mark">
@@ -24,7 +32,20 @@
         <!-- 快捷解锁（指纹 / PIN） -->
         <form id="m-quick-form" class="m-card m-elevated" hidden autocomplete="off">
           <div id="m-quick-account" class="m-pill-info"></div>
-          <button type="button" class="m-btn bio-btn" id="btn-m-bio" hidden>👆 指纹 / 面容一键秒开</button>
+          <button type="button" class="m-btn bio-btn" id="btn-m-bio" hidden>
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4" />
+              <path d="M14 13.12c0 2.38 0 6.38-1 8.88" />
+              <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02" />
+              <path d="M2 12a10 10 0 0 1 18-6" />
+              <path d="M2 16h.01" />
+              <path d="M21.8 16c.2-2 .131-5.354 0-6" />
+              <path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2" />
+              <path d="M8.65 22c.21-.66.45-1.32.57-2" />
+              <path d="M9 6.8a6 6 0 0 1 9 5.2v2" />
+            </svg>
+            <span>指纹 / 面容一键秒开</span>
+          </button>
           <label class="m-field" style="margin-top: 12px">
             <span>输入本机快捷 PIN</span>
             <input id="m-pin-in" type="password" inputmode="numeric" placeholder="••••" class="m-pin-big" maxlength="16" />
@@ -92,16 +113,21 @@
           </div>
         </div>
         <div class="m-top-btns">
+          <button type="button" class="m-icon-btn" id="btn-m-theme" title="切换深浅主题" aria-label="切换深浅主题">
+            <svg class="ic md" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+            </svg>
+          </button>
           <button type="button" class="m-icon-btn" id="btn-m-sync" title="立即同步" aria-label="立即同步">
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 12a9 9 0 0 0-15.5-6.36L3 8" />
-              <path d="M3 3v5h5" />
-              <path d="M3 12a9 9 0 0 0 15.5 6.36L21 16" />
-              <path d="M16 16h5v5" />
+            <svg class="ic md" viewBox="0 0 24 24" aria-hidden="true">
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
             </svg>
           </button>
           <button type="button" class="m-icon-btn lock-btn" id="btn-m-lock" title="锁定密码库" aria-label="锁定密码库">
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="ic md" viewBox="0 0 24 24" aria-hidden="true">
               <rect x="4" y="11" width="16" height="10" rx="2.5" />
               <path d="M8 11V7a4 4 0 0 1 8 0v4" />
               <circle cx="12" cy="16" r="1.2" fill="currentColor" stroke="none" />
@@ -115,48 +141,140 @@
         <section id="tab-vault" class="m-page">
           <div class="m-bento-strip">
             <button type="button" class="m-bento-item" data-bento="universal">
-              <span class="st-dot uni">🌐 通用</span>
+              <span class="st-dot uni">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="2" y1="12" x2="22" y2="12" />
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                </svg>
+                <span>通用</span>
+              </span>
               <strong id="mc-uni">0</strong>
             </button>
             <button type="button" class="m-bento-item" data-bento="mobile">
-              <span class="st-dot mob">📱 手机</span>
+              <span class="st-dot mob">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="5" y="2" width="14" height="20" rx="2" />
+                  <line x1="12" y1="18" x2="12.01" y2="18" />
+                </svg>
+                <span>手机</span>
+              </span>
               <strong id="mc-mob">0</strong>
             </button>
             <button type="button" class="m-bento-item" data-bento="desktop">
-              <span class="st-dot desk">💻 电脑</span>
+              <span class="st-dot desk">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="2" y="3" width="20" height="14" rx="2" />
+                  <line x1="8" y1="21" x2="16" y2="21" />
+                  <line x1="12" y1="17" x2="12" y2="21" />
+                </svg>
+                <span>电脑</span>
+              </span>
               <strong id="mc-desk">0</strong>
             </button>
             <button type="button" class="m-bento-item" data-bento="web">
-              <span class="st-dot web">🕸 网页</span>
+              <span class="st-dot web">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="4" width="18" height="16" rx="2" />
+                  <line x1="3" y1="9" x2="21" y2="9" />
+                  <circle cx="7" cy="6.5" r=".5" />
+                  <circle cx="10" cy="6.5" r=".5" />
+                </svg>
+                <span>网页</span>
+              </span>
               <strong id="mc-web">0</strong>
             </button>
           </div>
 
           <div class="m-search-wrap">
-            <svg class="m-search-ic" viewBox="0 0 20 20" width="15" height="15">
-              <path d="M8.5 3a5.5 5.5 0 104.38 8.82l3.65 3.65a.75.75 0 101.06-1.06l-3.65-3.65A5.5 5.5 0 008.5 3zm-4 5.5a4 4 0 118 0 4 4 0 01-8 0z" fill="currentColor" />
+            <svg class="m-search-ic ic sm" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
             <input id="m-search" type="search" class="m-search" placeholder="搜索名称、账号、域名、App 包名…" spellcheck="false" />
           </div>
 
           <div class="m-chips" id="m-scope-chips">
-            <button type="button" class="chip active" data-scope="fit">📱 本机适用</button>
-            <button type="button" class="chip" data-scope="universal">🌐 三端通用</button>
-            <button type="button" class="chip" data-scope="mobile">📱 手机专属</button>
-            <button type="button" class="chip" data-scope="desktop">💻 电脑端</button>
-            <button type="button" class="chip" data-scope="web">🕸 网页端</button>
-            <button type="button" class="chip" data-scope="fav">★ 收藏</button>
-            <button type="button" class="chip" data-scope="all">全部</button>
+            <button type="button" class="chip active" data-scope="fit">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="5" y="2" width="14" height="20" rx="2" />
+                <line x1="12" y1="18" x2="12.01" y2="18" />
+              </svg>
+              <span>本机适用</span>
+            </button>
+            <button type="button" class="chip" data-scope="universal">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="2" y1="12" x2="22" y2="12" />
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+              </svg>
+              <span>三端通用</span>
+            </button>
+            <button type="button" class="chip" data-scope="mobile">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="5" y="2" width="14" height="20" rx="2" />
+                <line x1="12" y1="18" x2="12.01" y2="18" />
+              </svg>
+              <span>手机专属</span>
+            </button>
+            <button type="button" class="chip" data-scope="desktop">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="2" y="3" width="20" height="14" rx="2" />
+                <line x1="8" y1="21" x2="16" y2="21" />
+                <line x1="12" y1="17" x2="12" y2="21" />
+              </svg>
+              <span>电脑端</span>
+            </button>
+            <button type="button" class="chip" data-scope="web">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="16" rx="2" />
+                <line x1="3" y1="9" x2="21" y2="9" />
+                <circle cx="7" cy="6.5" r=".5" />
+                <circle cx="10" cy="6.5" r=".5" />
+              </svg>
+              <span>网页端</span>
+            </button>
+            <button type="button" class="chip" data-scope="fav">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+              <span>收藏</span>
+            </button>
+            <button type="button" class="chip" data-scope="all">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                <polyline points="2 17 12 22 22 17" />
+                <polyline points="2 12 12 17 22 12" />
+              </svg>
+              <span>全部</span>
+            </button>
           </div>
 
           <ul id="m-list" class="m-list"></ul>
 
           <div id="m-empty" class="m-empty-box" hidden>
-            <div class="m-empty-ic">🔐</div>
+            <div class="m-empty-ic">
+              <svg class="ic xl" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            </div>
             <p>当前筛选下暂无密码记录</p>
             <div class="m-grid-2" style="max-width: 260px; margin: 10px auto 0">
-              <button type="button" class="m-btn ghost small" id="btn-m-empty-add">＋ 记一笔</button>
-              <button type="button" class="m-btn ghost small" id="btn-m-empty-ai">✨ 拍照导密</button>
+              <button type="button" class="m-btn ghost small" id="btn-m-empty-add">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                <span>记一笔</span>
+              </button>
+              <button type="button" class="m-btn ghost small" id="btn-m-empty-ai">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z" />
+                  <path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z" />
+                </svg>
+                <span>拍照导密</span>
+              </button>
             </div>
           </div>
         </section>
@@ -165,12 +283,19 @@
         <section id="tab-auth" class="m-page" hidden>
           <div class="m-auth-toolbar">
             <div class="m-search-wrap" style="flex: 1; margin-bottom: 0">
-              <svg class="m-search-ic" viewBox="0 0 20 20" width="15" height="15">
-                <path d="M8.5 3a5.5 5.5 0 104.38 8.82l3.65 3.65a.75.75 0 101.06-1.06l-3.65-3.65A5.5 5.5 0 008.5 3zm-4 5.5a4 4 0 118 0 4 4 0 01-8 0z" fill="currentColor" />
+              <svg class="m-search-ic ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
               <input id="ma-search" type="search" class="m-search" placeholder="搜索验证器服务名、账号…" spellcheck="false" />
             </div>
-            <button type="button" class="m-btn primary small m-auth-add-btn" id="btn-ma-toggle-add">＋ 添加</button>
+            <button type="button" class="m-btn primary small m-auth-add-btn" id="btn-ma-toggle-add">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>添加</span>
+            </button>
           </div>
 
           <form id="ma-add-card" class="m-card m-auth-add-card" hidden autocomplete="off">
@@ -179,7 +304,11 @@
               <button type="button" class="m-btn ghost small" id="btn-ma-cancel-add">收起</button>
             </div>
             <button type="button" class="m-btn ghost small" id="btn-ma-scan-qr" style="width: 100%; margin-bottom: 10px">
-              📷 扫描 / 从相册识别二维码 (otpauth://)
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+              <span>扫描 / 从相册识别二维码 (otpauth://)</span>
             </button>
             <input id="ma-qr-input" type="file" accept="image/*" capture="environment" hidden />
             <label class="m-field">
@@ -195,16 +324,34 @@
               <input id="ma-user" type="text" placeholder="邮箱、手机号或用户名" spellcheck="false" />
             </label>
             <p id="ma-add-err" class="m-err" hidden></p>
-            <button type="submit" class="m-btn primary" id="btn-ma-save">🔒 加密保存验证器</button>
+            <button type="submit" class="m-btn primary" id="btn-ma-save">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              <span>加密保存验证器</span>
+            </button>
           </form>
 
           <ul id="ma-list" class="m-auth-list"></ul>
 
           <div id="ma-empty" class="m-empty-box" hidden>
-            <div class="m-empty-ic">⏱</div>
+            <div class="m-empty-ic">
+              <svg class="ic xl" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="13" r="8" />
+                <path d="M12 9v4l2 2" />
+                <path d="M9 2h6" />
+              </svg>
+            </div>
             <p>暂无 Authenticator 验证器</p>
             <p class="m-muted" style="margin: 4px 0 12px">可点击右下角扫码或右上角添加，也可在密码条目中填写密钥</p>
-            <button type="button" class="m-btn ghost small" id="btn-ma-empty-add">＋ 添加验证器</button>
+            <button type="button" class="m-btn ghost small" id="btn-ma-empty-add">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>添加验证器</span>
+            </button>
           </div>
 
           <div class="m-auth-foot-note">
@@ -213,7 +360,7 @@
           </div>
 
           <button type="button" class="m-auth-fab" id="btn-ma-fab" title="添加或扫描验证器" aria-label="添加或扫描验证器">
-            <svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="ic lg" viewBox="0 0 24 24" aria-hidden="true">
               <rect x="3" y="3" width="7" height="7" rx="1.2" />
               <rect x="14" y="3" width="7" height="7" rx="1.2" />
               <rect x="3" y="14" width="7" height="7" rx="1.2" />
@@ -225,9 +372,21 @@
         <!-- 条目详情页（品牌色圆角头像 + 彩色明文密码 + 动态码进度环） -->
         <section id="tab-detail" class="m-page" hidden>
           <div class="m-row-between" style="margin-bottom: 10px">
-            <button type="button" class="m-btn ghost small" id="btn-md-back">← 返回列表</button>
+            <button type="button" class="m-btn ghost small" id="btn-md-back">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
+              <span>返回列表</span>
+            </button>
             <div style="display: flex; gap: 8px">
-              <button type="button" class="m-btn ghost small" id="btn-md-edit">✎ 编辑</button>
+              <button type="button" class="m-btn ghost small" id="btn-md-edit">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+                <span>编辑</span>
+              </button>
               <button type="button" class="m-btn ghost small danger" id="btn-md-del">删除</button>
             </div>
           </div>
@@ -237,7 +396,11 @@
             <div class="m-hero-meta">
               <div class="m-hero-title-row">
                 <h2 id="md-name"></h2>
-                <button type="button" class="m-fav-btn" id="btn-md-fav" title="收藏">☆</button>
+                <button type="button" class="m-fav-btn" id="btn-md-fav" title="收藏" aria-label="收藏">
+                  <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                  </svg>
+                </button>
               </div>
               <div id="md-badges" class="m-badges"></div>
             </div>
@@ -306,9 +469,15 @@
           </div>
 
           <div class="m-card">
-            <div class="m-row-between" style="margin-bottom: 4px">
+            <div class="m-row-between" style="margin-bottom: 6px">
               <span style="font-size: 12px; color: var(--muted)">本机直连 AI 模型源（不经过服务器）</span>
-              <button type="button" class="m-link-inline" id="btn-m-jump-prov">⚙ 切换/自定义模型</button>
+              <button type="button" class="m-link-inline" id="btn-m-jump-prov">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+                <span>切换/自定义模型</span>
+              </button>
             </div>
             <select id="m-ai-provider"></select>
 
@@ -319,12 +488,21 @@
 
             <div class="m-action-tiles">
               <button type="button" class="m-action-tile cam" id="btn-m-camera">
-                <span class="tile-ic">📷</span>
+                <span class="tile-ic">
+                  <svg class="ic md" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
+                </span>
                 <b>拍照识密码</b>
                 <small>手写本 · 电脑屏幕 · 路由器铭牌</small>
               </button>
               <button type="button" class="m-action-tile doc" id="btn-m-file">
-                <span class="tile-ic">📂</span>
+                <span class="tile-ic">
+                  <svg class="ic md" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                  </svg>
+                </span>
                 <b>选文档/表格/截图</b>
                 <small>.xlsx · .docx · .pdf · .csv · 相册图</small>
               </button>
@@ -334,7 +512,15 @@
             <input id="m-file-input" type="file" accept=".csv,.tsv,.xlsx,.docx,.pdf,.txt,.md,.json,image/*" hidden />
 
             <details class="m-paste-details">
-              <summary>📝 或直接粘贴一段杂乱文字记录让 AI 提取</summary>
+              <summary>
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                </svg>
+                <span>或直接粘贴一段杂乱文字记录让 AI 提取</span>
+              </summary>
               <textarea id="m-raw-text" rows="3" placeholder="如：飞书 zhangsan@x.com 密码 Abc#123 三端通用" style="margin-top: 8px"></textarea>
               <button type="button" class="m-btn ghost" id="btn-m-parse-text" style="margin-top: 8px">开始提取上方文字</button>
             </details>
@@ -348,15 +534,19 @@
               <b id="m-preview-title">识别结果核对</b>
               <select id="m-batch-scope" style="width: auto; padding: 5px 9px; font-size: 12px">
                 <option value="">批量设适用端…</option>
-                <option value="universal">🌐 三端通用</option>
-                <option value="mobile">📱 手机端</option>
-                <option value="desktop">💻 电脑端</option>
-                <option value="web">🕸 网页端</option>
+                <option value="universal">三端通用</option>
+                <option value="mobile">手机端</option>
+                <option value="desktop">电脑端</option>
+                <option value="web">网页端</option>
               </select>
             </div>
             <div id="m-preview-cards"></div>
             <button type="button" class="m-btn primary" id="btn-m-commit-import" style="margin-top: 10px">
-              🔒 本地零知识加密并批量上传
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              <span>本地零知识加密并批量上传</span>
             </button>
           </div>
         </section>
@@ -372,10 +562,10 @@
             <label class="m-field">
               <span>适用端口范围（服务端四态分类）</span>
               <select id="me-scope">
-                <option value="universal">🌐 三端统一通用账户（手机+电脑+网页互通）</option>
-                <option value="mobile">📱 仅手机客户端密码</option>
-                <option value="desktop">💻 仅电脑客户端密码</option>
-                <option value="web">🕸 仅网页端密码</option>
+                <option value="universal">三端统一通用账户（手机+电脑+网页互通）</option>
+                <option value="mobile">仅手机客户端密码</option>
+                <option value="desktop">仅电脑客户端密码</option>
+                <option value="web">仅网页端密码</option>
               </select>
             </label>
             <label class="m-field">
@@ -384,26 +574,44 @@
             </label>
             <div class="m-field">
               <div class="m-lbl-row" style="margin-bottom: 4px">
-                <span style="font-size: 12px; color: var(--muted)">密码（纯验证器可留空）</span>
+                <span style="font-size: 12px; color: var(--text-secondary)">密码（纯验证器可留空）</span>
                 <span id="me-pwd-strength" class="m-strength-pill" hidden></span>
               </div>
               <div style="display: flex; gap: 6px">
                 <input id="me-pwd" type="password" placeholder="输入或点右侧随机生成" style="flex: 1" />
                 <button type="button" class="m-btn ghost small" id="btn-me-eye">显示</button>
-                <button type="button" class="m-btn ghost small" id="btn-me-gen" title="生成高强度密码">🎲 生成</button>
+                <button type="button" class="m-btn ghost small" id="btn-me-gen" title="生成高强度密码">
+                  <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z" />
+                    <path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z" />
+                  </svg>
+                  <span>生成</span>
+                </button>
               </div>
             </div>
 
             <div class="m-subcard">
               <div class="m-row-between" style="margin-bottom: 6px">
-                <span style="font-size: 12px; color: #9ecbff">📲 绑定本机已安装 App（打开自动提示填充）</span>
+                <span class="m-subcard-title">
+                  <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="5" y="2" width="14" height="20" rx="2" />
+                    <line x1="12" y1="18" x2="12.01" y2="18" />
+                  </svg>
+                  <span>绑定本机已安装 App（打开自动提示填充）</span>
+                </span>
                 <button type="button" class="m-btn ghost small" id="btn-me-load-apps">读取应用</button>
               </div>
               <div style="display: flex; gap: 6px">
                 <select id="me-app-picker" style="flex: 1">
                   <option value="">-- 点选手机应用自动填入包名 --</option>
                 </select>
-                <button type="button" class="m-btn ghost small" id="btn-me-bind-app">＋ 绑定</button>
+                <button type="button" class="m-btn ghost small" id="btn-me-bind-app">
+                  <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  <span>绑定</span>
+                </button>
               </div>
             </div>
 
@@ -428,12 +636,19 @@
           </form>
         </section>
 
-        <!-- Tab 4：版本更新、系统自动填充 & 自定义 AI 模型提供商管理 -->
+        <!-- Tab 4：版本更新、系统自动填充、外观主题与自定义 AI 模型提供商管理 -->
         <section id="tab-settings" class="m-page" hidden>
           <div class="m-card" style="margin-bottom: 12px">
             <div class="m-row-between" style="margin-bottom: 6px">
-              <h3 style="margin: 0; font-size: 15px">🔄 版本检查与一键更新</h3>
-              <span id="mu-cur-ver" class="m-ver-pill">v2.1.0</span>
+              <h3 class="m-head-lbl" style="margin: 0; font-size: 15px">
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                  <polyline points="23 4 23 10 17 10" />
+                  <polyline points="1 20 1 14 7 14" />
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
+                <span>版本检查与一键更新</span>
+              </h3>
+              <span id="mu-cur-ver" class="m-ver-pill">v2.2.0</span>
             </div>
             <p class="m-muted" style="margin: 0 0 10px">支持直接填 GitHub 仓库（如 <code>user/repo</code>）或留空使用当前服务器 <code>/client-releases/latest.json</code>。</p>
             <label class="m-field">
@@ -447,19 +662,63 @@
             <div id="mu-progress-wrap" class="m-progress-wrap" hidden>
               <div id="mu-progress-bar" class="m-progress-bar" style="width: 0%"></div>
             </div>
-            <button type="button" class="m-btn primary" id="btn-mu-install" style="margin-top: 10px" hidden>⬇ 一键下载并安装更新</button>
+            <button type="button" class="m-btn primary" id="btn-mu-install" style="margin-top: 10px" hidden>
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <span>一键下载并安装更新</span>
+            </button>
           </div>
 
-          <div class="m-card">
-            <h3 style="margin: 0 0 6px; font-size: 15px">📲 Android 系统级密码自动填充</h3>
+          <div class="m-card" style="margin-bottom: 12px">
+            <h3 class="m-head-lbl" style="margin: 0 0 6px; font-size: 15px">
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="5" y="2" width="14" height="20" rx="2" />
+                <line x1="12" y1="18" x2="12.01" y2="18" />
+              </svg>
+              <span>Android 系统级密码自动填充</span>
+            </h3>
             <p class="m-muted" style="margin: 0 0 10px">开启后，打开手机 App 或浏览器登录框时会自动弹出「KeyNexus」候选条，登录新账号也能自动捕获保存。</p>
             <button type="button" class="m-btn primary" id="btn-m-autofill-sys">前往系统设置启用 KeyNexus 自动填充</button>
           </div>
 
-          <div class="m-card" style="margin-top: 12px">
+          <div class="m-card" style="margin-bottom: 12px">
+            <h3 class="m-head-lbl" style="margin: 0 0 6px; font-size: 15px">
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+              </svg>
+              <span>外观主题</span>
+            </h3>
+            <label class="m-field" style="margin-bottom: 0">
+              <span>界面配色方案</span>
+              <select id="m-theme">
+                <option value="system">跟随系统</option>
+                <option value="dark">黑曜石深色</option>
+                <option value="light">陶瓷浅色</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="m-card">
             <div class="m-row-between">
-              <h3 style="margin: 0; font-size: 15px">🤖 AI 模型提供商中心</h3>
-              <button type="button" class="m-btn ghost small" id="btn-mp-custom">＋ 自定义网关</button>
+              <h3 class="m-head-lbl" style="margin: 0; font-size: 15px">
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="4" y="4" width="16" height="16" rx="2" />
+                  <rect x="9" y="9" width="6" height="6" />
+                  <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3" />
+                </svg>
+                <span>AI 模型提供商中心</span>
+              </h3>
+              <button type="button" class="m-btn ghost small" id="btn-mp-custom">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                <span>自定义网关</span>
+              </button>
             </div>
             <p class="m-muted" style="margin: 4px 0 10px">API Key 经 Android 硬件级 Keystore 加密存储在本机，支持任意自定义接口。</p>
 
@@ -496,7 +755,13 @@
                 <span>API Key</span>
                 <div style="display: flex; gap: 6px; align-items: center">
                   <input id="mp-key" type="password" placeholder="sk-..." spellcheck="false" style="flex: 1" />
-                  <button type="button" class="m-btn ghost small" id="btn-mp-detect" style="white-space: nowrap">🔍 检测模型</button>
+                  <button type="button" class="m-btn ghost small" id="btn-mp-detect" style="white-space: nowrap">
+                    <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    <span>检测模型</span>
+                  </button>
                 </div>
               </label>
               <div class="m-grid-2">
@@ -524,7 +789,12 @@
               </label>
               <div class="m-grid-2">
                 <button type="submit" class="m-btn primary">保存并启用</button>
-                <button type="button" class="m-btn ghost" id="btn-mp-test">⚡ 测试连通</button>
+                <button type="button" class="m-btn ghost" id="btn-mp-test">
+                  <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  </svg>
+                  <span>测试连通</span>
+                </button>
               </div>
               <p id="mp-msg" class="m-muted" style="margin-top: 8px"></p>
             </form>
@@ -535,7 +805,7 @@
       <!-- 底部五栏导航（全矢量线性图标） -->
       <nav class="m-tabbar">
         <button type="button" class="m-tab active" data-tab="vault">
-          <svg class="tb-svg" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg class="tb-svg" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 2.5l8 3.6v6c0 5.1-3.4 9.3-8 10.9-4.6-1.6-8-5.8-8-10.9v-6l8-3.6z" />
             <circle cx="12" cy="11" r="2" />
             <path d="M12 13v3.5" />
@@ -543,7 +813,7 @@
           <span>密码库</span>
         </button>
         <button type="button" class="m-tab" data-tab="auth">
-          <svg class="tb-svg" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg class="tb-svg" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="8.5" />
             <path d="M12 7.5V12l3 2" />
             <path d="M16.5 3.5l2.5 2.5" />
@@ -551,14 +821,14 @@
           <span>验证器</span>
         </button>
         <button type="button" class="m-tab" data-tab="ai">
-          <svg class="tb-svg" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg class="tb-svg" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 3l2.2 5.3L19.5 10.5l-5.3 2.2L12 18l-2.2-5.3L4.5 10.5l5.3-2.2L12 3z" />
             <path d="M19 16l.9 2.1L22 19l-2.1.9L19 22l-.9-2.1L16 19l2.1-.9L19 16z" />
           </svg>
           <span>AI 识密</span>
         </button>
         <button type="button" class="m-tab" data-tab="edit">
-          <svg class="tb-svg" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg class="tb-svg" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3.5" y="3.5" width="17" height="17" rx="4.5" />
             <path d="M12 8v8M8 12h8" />
           </svg>
@@ -566,7 +836,7 @@
         </button>
         <button type="button" class="m-tab" data-tab="settings">
           <span class="m-tab-ic-wrap">
-            <svg class="tb-svg" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="tb-svg" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="3.2" />
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.08a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.08a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.08a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>

@@ -1,6 +1,6 @@
 /**
  * PWDSV Windows 桌面客户端主应用逻辑 v2.1：
- * - 四态密码作用域体系（🌐 三端通用 / 💻 电脑端 / 🕸 网页端 / 📱 手机端）
+ * - 四态密码作用域体系（三端通用 / 电脑端 / 网页端 / 手机端）
  * - 多格式文件识别与 AI 密码解析导入台（CSV / Excel .xlsx / Word .docx / PDF / TXT / 图片截图粘贴）
  * - 可自由切换 & 新增任意自定义模型提供商（API Key 经 Windows DPAPI 加密存本机，不经过 PWDSV 服务器）
  * - Win32 前台软件启动监听 + 无焦点 HUD 提示 + SendInput 键入 + 防 Win+V 泄漏安全剪贴板 + 本地短 PIN 快解
@@ -32,6 +32,37 @@ const invoke = (cmd, args = {}) => window.__TAURI__.core.invoke(cmd, args);
 const listen = (event, handler) => window.__TAURI__.event.listen(event, handler);
 
 const LOCAL_PREFS_KEY = "pwdsv_desktop_prefs_v2";
+const VALID_THEMES = new Set(["system", "dark", "light"]);
+const systemDarkMq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+const SVG_ICONS = {
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+  moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+  globe: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+  web: '<rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><circle cx="7" cy="6.5" r=".5"/><circle cx="10" cy="6.5" r=".5"/>',
+  monitor: '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+  smartphone: '<rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>',
+  layers: '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+  clock: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M9 2h6"/>',
+  star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+  folder: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+  refresh: '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
+  chevronRight: '<polyline points="9 18 15 12 9 6"/>',
+  search: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+  keyboard: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+};
+
+function svgIcon(name, className = "ic sm", { filled = false } = {}) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("class", filled ? `${className} filled` : className);
+  svg.innerHTML = SVG_ICONS[name] || "";
+  return svg;
+}
+
 const DEFAULT_PREFS = {
   serverUrl: "",
   email: "",
@@ -41,16 +72,21 @@ const DEFAULT_PREFS = {
   lockMinutes: 30,
   clipboardClearSeconds: 30,
   updateManifestUrl: "",
+  theme: "dark",
 };
 
 function loadPrefs() {
   try {
     const raw = JSON.parse(localStorage.getItem(LOCAL_PREFS_KEY) || "{}");
-    const prefs = { ...DEFAULT_PREFS, ...raw };
+    const prefs = {
+      ...DEFAULT_PREFS,
+      ...raw,
+      theme: VALID_THEMES.has(raw.theme) ? raw.theme : "dark",
+    };
     if (!prefs.deviceId) {
       prefs.deviceId = crypto.randomUUID();
-      localStorage.setItem(LOCAL_PREFS_KEY, JSON.stringify(prefs));
     }
+    localStorage.setItem(LOCAL_PREFS_KEY, JSON.stringify(prefs));
     return prefs;
   } catch {
     const prefs = { ...DEFAULT_PREFS, deviceId: crypto.randomUUID() };
@@ -113,6 +149,59 @@ const state = {
   previewItems: [],
   pendingUpdate: null,
 };
+
+function resolveTheme(themePref = state.prefs.theme) {
+  if (themePref === "light") return "light";
+  if (themePref === "dark") return "dark";
+  return systemDarkMq?.matches ? "dark" : "light";
+}
+
+function updateThemeSwitcherButtons(resolved) {
+  const nextIcon = resolved === "dark" ? "sun" : "moon";
+  const nextLabel = resolved === "dark" ? "浅色" : "深色";
+  const nextTitle = resolved === "dark" ? "切换到陶瓷浅色主题" : "切换到黑曜石深色主题";
+
+  const authBtn = $("btn-auth-theme");
+  if (authBtn) {
+    authBtn.textContent = "";
+    authBtn.title = nextTitle;
+    authBtn.setAttribute("aria-label", nextTitle);
+    const lbl = document.createElement("span");
+    lbl.id = "auth-theme-label";
+    lbl.textContent = nextLabel;
+    authBtn.append(svgIcon(nextIcon, "ic sm"), lbl);
+  }
+
+  const sideBtn = $("btn-sidebar-theme");
+  if (sideBtn) {
+    sideBtn.textContent = "";
+    sideBtn.title = nextTitle;
+    sideBtn.setAttribute("aria-label", nextTitle);
+    sideBtn.appendChild(svgIcon(nextIcon, "ic sm"));
+  }
+}
+
+function applyTheme(themePref = state.prefs.theme) {
+  const resolved = resolveTheme(themePref);
+  document.documentElement.dataset.theme = resolved;
+  updateThemeSwitcherButtons(resolved);
+  return resolved;
+}
+
+function toggleQuickTheme() {
+  const currentResolved = resolveTheme(state.prefs.theme);
+  const next = currentResolved === "dark" ? "light" : "dark";
+  savePrefs({ theme: next });
+  applyTheme(next);
+  if ($("st-theme")) $("st-theme").value = next;
+}
+
+applyTheme(state.prefs.theme);
+systemDarkMq?.addEventListener?.("change", () => {
+  if (state.prefs.theme === "system") applyTheme("system");
+});
+$("btn-auth-theme")?.addEventListener("click", toggleQuickTheme);
+$("btn-sidebar-theme")?.addEventListener("click", toggleQuickTheme);
 
 /* ------------------------------------------------------------------ 实时同步 */
 
@@ -295,8 +384,16 @@ async function pushWatchStateToRust() {
   const unlocked = Boolean(state.session);
   const watchEnabled = Boolean(state.prefs.watchEnabled);
   const pill = $("watch-indicator");
-  pill.textContent = watchEnabled ? "● 守护中" : "○ 已暂停";
-  pill.classList.toggle("off", !watchEnabled);
+  if (pill) {
+    pill.textContent = "";
+    const dot = document.createElement("i");
+    dot.className = "watch-dot";
+    dot.setAttribute("aria-hidden", "true");
+    const txt = document.createElement("span");
+    txt.textContent = watchEnabled ? "守护中" : "已暂停";
+    pill.append(dot, txt);
+    pill.classList.toggle("off", !watchEnabled);
+  }
 
   const watchedApps = unlocked
     ? state.items
@@ -690,14 +787,14 @@ const SHORT_SCOPE_TEXT = {
   mobile: "手机",
 };
 
-const FILTER_TITLES = {
-  all: "全部密码",
-  universal: "🌐 三端通用账户",
-  desktop: "💻 电脑端专属",
-  web: "🕸 网页端专属",
-  mobile: "📱 手机端专属",
-  fav: "★ 星标收藏",
-  totp: "⏱ Authenticator 验证器",
+const FILTER_META = {
+  all: { icon: "layers", label: "全部密码" },
+  universal: { icon: "globe", label: "三端通用账户" },
+  desktop: { icon: "monitor", label: "电脑端专属" },
+  web: { icon: "web", label: "网页端专属" },
+  mobile: { icon: "smartphone", label: "手机端专属" },
+  fav: { icon: "star", label: "星标收藏" },
+  totp: { icon: "clock", label: "Authenticator 验证器" },
 };
 
 function renderSidebarAndList() {
@@ -731,7 +828,9 @@ function renderSidebarAndList() {
     const count = state.items.filter((i) => i.folderId === f.id).length;
     const lbl = document.createElement("span");
     lbl.className = "nav-lbl";
-    lbl.textContent = "📁 " + (f.name || "未命名");
+    const fname = document.createElement("span");
+    fname.textContent = f.name || "未命名";
+    lbl.append(svgIcon("folder", "ic sm"), fname);
     const em = document.createElement("em");
     em.textContent = String(count);
     btn.append(lbl, em);
@@ -769,14 +868,21 @@ document.querySelectorAll(".stat-tile[data-jump]").forEach((tile) => {
   });
 });
 
-function currentFilterTitle() {
-  if (FILTER_TITLES[state.filter]) return FILTER_TITLES[state.filter];
+function renderListFilterTitle(el) {
+  if (!el) return;
+  el.textContent = "";
+  const meta = FILTER_META[state.filter];
+  if (meta) {
+    el.append(svgIcon(meta.icon, "ic sm"), document.createTextNode(meta.label));
+    return;
+  }
   if (state.filter.startsWith("folder:")) {
     const fid = state.filter.slice("folder:".length);
     const f = state.folders.find((x) => x.id === fid);
-    return f ? `📁 ${f.name}` : "文件夹";
+    el.append(svgIcon("folder", "ic sm"), document.createTextNode(f ? f.name : "文件夹"));
+    return;
   }
-  return "全部密码";
+  el.append(svgIcon("layers", "ic sm"), document.createTextNode("全部密码"));
 }
 
 function renderListOnly() {
@@ -784,7 +890,7 @@ function renderListOnly() {
   const ul = $("vault-list");
   ul.textContent = "";
   $("vault-empty").hidden = list.length > 0;
-  if ($("list-filter-title")) $("list-filter-title").textContent = currentFilterTitle();
+  renderListFilterTitle($("list-filter-title"));
   if ($("list-result-count")) $("list-result-count").textContent = `${list.length} 项`;
 
   for (const item of list) {
@@ -801,9 +907,10 @@ function renderListOnly() {
 
     const top = document.createElement("div");
     top.className = "row-top";
+    if (item.favorite) top.appendChild(svgIcon("star", "ic sm fav-star-ic", { filled: true }));
     const title = document.createElement("span");
     title.className = "row-title-txt";
-    title.textContent = (item.favorite ? "★ " : "") + (item.name || "(未命名)");
+    title.textContent = item.name || "(未命名)";
     top.appendChild(title);
 
     const sub = document.createElement("div");
@@ -824,7 +931,7 @@ function renderListOnly() {
       btnType.type = "button";
       btnType.className = "micro-btn";
       btnType.title = "一键键入密码到上一窗口";
-      btnType.textContent = "⌨ 键入";
+      btnType.append(svgIcon("keyboard", "ic sm"), document.createTextNode("键入"));
       btnType.addEventListener("click", async (ev) => {
         ev.stopPropagation();
         await invoke("auto_type_to_last_window", {
@@ -877,9 +984,9 @@ function stopTotpTimer() {
 
 function uriPlatformIcon(uri) {
   const u = String(uri || "");
-  if (/^app:\/\//i.test(u)) return "💻";
-  if (/^androidapp:\/\//i.test(u)) return "📱";
-  return "🌐";
+  if (/^app:\/\//i.test(u)) return "monitor";
+  if (/^androidapp:\/\//i.test(u)) return "smartphone";
+  return "globe";
 }
 
 function openDetail(id) {
@@ -895,7 +1002,8 @@ function openDetail(id) {
   applyAvatarVisual($("d-avatar"), item.name || item.username, item.id);
   $("d-name").textContent = item.name || "(未命名)";
   if ($("btn-d-fav")) {
-    $("btn-d-fav").textContent = item.favorite ? "★" : "☆";
+    $("btn-d-fav").textContent = "";
+    $("btn-d-fav").appendChild(svgIcon("star", "ic", { filled: Boolean(item.favorite) }));
     $("btn-d-fav").style.opacity = item.favorite ? "1" : "0.45";
   }
 
@@ -911,7 +1019,7 @@ function openDetail(id) {
   if (item.folderName) {
     const b = document.createElement("span");
     b.className = "badge";
-    b.textContent = "📁 " + item.folderName;
+    b.append(svgIcon("folder", "ic sm"), document.createTextNode(item.folderName));
     badges.appendChild(b);
   }
   if (item.pwdsvOriginDevice) {
@@ -922,7 +1030,7 @@ function openDetail(id) {
   }
   if (item.passwordHistory?.length) {
     const b = document.createElement("span");
-    b.className = "badge";
+    b.className = "badge tabular-nums";
     b.textContent = `历史密码 ${item.passwordHistory.length} 条`;
     badges.appendChild(b);
   }
@@ -936,11 +1044,9 @@ function openDetail(id) {
   for (const u of item.uris || []) {
     const chip = document.createElement("div");
     chip.className = "uri-chip";
-    const ic = document.createElement("span");
-    ic.textContent = uriPlatformIcon(u.uri);
     const txt = document.createElement("span");
     txt.textContent = u.uri;
-    chip.append(ic, txt);
+    chip.append(svgIcon(uriPlatformIcon(u.uri), "ic sm"), txt);
     $("d-uris").appendChild(chip);
   }
 
@@ -960,7 +1066,7 @@ function openDetail(id) {
           const total = period || 30;
           const offset = circumference * (1 - remaining / total);
           circle.setAttribute("stroke-dashoffset", offset.toFixed(2));
-          circle.style.stroke = remaining <= 5 ? "#f59e0b" : "#34d399";
+          circle.style.stroke = remaining <= 5 ? "var(--warn)" : "var(--totp)";
         }
       } catch {
         $("d-totp").textContent = "格式无效";
@@ -1002,7 +1108,7 @@ $("btn-d-fav")?.addEventListener("click", async () => {
     const api = makeApiClient(state.session.serverUrl, state.session.insecureTls);
     await api.updateCipher(token, item.id, payload);
     await syncVault(true);
-    showToast(nextFav ? "★ 已加入星标收藏" : "已取消星标收藏");
+    showToast(nextFav ? "已加入星标收藏" : "已取消星标收藏");
   } catch (err) {
     showToast("更新收藏失败：" + (err.message || err));
   }
@@ -1288,7 +1394,7 @@ async function refreshDesktopAuthCodes() {
         const total = period || 30;
         const offset = circumference * (1 - remaining / total);
         ref.circleEl.setAttribute("stroke-dashoffset", offset.toFixed(2));
-        ref.circleEl.style.stroke = remaining <= 5 ? "#f59e0b" : "#34d399";
+        ref.circleEl.style.stroke = remaining <= 5 ? "var(--warn)" : "var(--totp)";
       } catch {
         ref.currentCode = "";
         ref.codeEl.classList.add("invalid");
@@ -1356,7 +1462,10 @@ function renderDesktopAuthCards() {
     titleLine.className = "da-title-line";
     const nm = document.createElement("span");
     nm.className = "da-card-name";
-    nm.textContent = (item.favorite ? "★ " : "") + (item.name || "(未命名)");
+    if (item.favorite) nm.appendChild(svgIcon("star", "ic sm fav-star-ic", { filled: true }));
+    const nmTxt = document.createElement("span");
+    nmTxt.textContent = item.name || "(未命名)";
+    nm.appendChild(nmTxt);
     const usr = document.createElement("span");
     usr.className = "da-card-user";
     usr.textContent = item.username || item.uris?.[0]?.uri || "验证器";
@@ -1384,12 +1493,12 @@ function renderDesktopAuthCards() {
     btnType.type = "button";
     btnType.className = "ghost small";
     btnType.title = "键入动态码到上一窗口";
-    btnType.textContent = "⌨ 键入";
+    btnType.append(svgIcon("keyboard", "ic sm"), document.createTextNode("键入"));
 
     const btnDetail = document.createElement("button");
     btnDetail.type = "button";
     btnDetail.className = "ghost small";
-    btnDetail.textContent = "›";
+    btnDetail.appendChild(svgIcon("chevronRight", "ic sm"));
     btnDetail.title = "查看详情";
 
     const ref = {
@@ -1569,7 +1678,15 @@ function renderProvidersManagerList() {
     const top = document.createElement("div");
     top.className = "row-top";
     const nm = document.createElement("span");
-    nm.textContent = (p.id === state.activeProviderId ? "● " : "") + p.name;
+    nm.className = "prov-name-lbl";
+    if (p.id === state.activeProviderId) {
+      const dot = document.createElement("span");
+      dot.className = "prov-active-dot";
+      nm.appendChild(dot);
+    }
+    const nmTxt = document.createElement("span");
+    nmTxt.textContent = p.name;
+    nm.appendChild(nmTxt);
     top.appendChild(nm);
 
     const b = document.createElement("span");
@@ -1669,7 +1786,6 @@ async function detectDesktopProviderModels(silent = false) {
   }
   const msgEl = $("prov-msg");
   const btn = $("btn-prov-detect");
-  const origBtn = btn?.textContent || "🔍 检测模型";
   if (!silent) msgEl.textContent = "正在检测可用模型…";
   if (btn) {
     btn.disabled = true;
@@ -1709,13 +1825,14 @@ async function detectDesktopProviderModels(silent = false) {
     if ($("p-model-picker-row")) $("p-model-picker-row").hidden = !res.models.length;
     if (!$("p-text-model").value.trim() && res.suggestedText) $("p-text-model").value = res.suggestedText;
     if (!$("p-vision-model").value.trim() && res.suggestedVision) $("p-vision-model").value = res.suggestedVision;
-    msgEl.textContent = `✓ 检测到 ${res.models.length} 个模型（已自动填入推荐模型，也可从下方列表切换）`;
+    msgEl.textContent = `已检测到 ${res.models.length} 个模型（已自动填入推荐模型，也可从下方列表切换）`;
   } catch (err) {
-    if (!silent) msgEl.textContent = `✗ 模型检测失败：${err?.message || err}`;
+    if (!silent) msgEl.textContent = `模型检测失败：${err?.message || err}`;
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.textContent = origBtn;
+      btn.textContent = "";
+      btn.append(svgIcon("search", "ic sm"), document.createTextNode("检测模型"));
     }
   }
 }
@@ -1771,7 +1888,7 @@ $("prov-form").addEventListener("submit", async (e) => {
   await persistAiProvidersToDisk();
   renderProvidersManagerList();
   renderProviderSelectorInImporter();
-  $("prov-msg").textContent = "✓ 已加密保存到本机并设为当前使用的模型提供商";
+  $("prov-msg").textContent = "已加密保存到本机并设为当前使用的模型提供商";
   showToast(`已切换当前 AI 提供商为：${cfg.name}`);
 });
 
@@ -1781,9 +1898,9 @@ $("btn-prov-test").addEventListener("click", async () => {
   try {
     const cfg = collectProviderForm();
     const res = await testProviderConnection(cfg, { fetchImpl: makeTauriFetch(false) });
-    msgEl.textContent = `✓ 连通成功！模型响应：${res.sample}`;
+    msgEl.textContent = `连通成功，模型响应：${res.sample}`;
   } catch (err) {
-    msgEl.textContent = `✗ 测试失败：${err.message || err}`;
+    msgEl.textContent = `测试失败：${err.message || err}`;
   }
 });
 
@@ -1863,7 +1980,7 @@ async function runFileExtractionFlow(fileObj) {
           ? `AI 视觉识别 (${activeProv?.name})`
           : `AI 智能语义解析 (${activeProv?.name})`;
 
-    statusEl.textContent = `✓ 解析完成 [${modeName}]：从「${result.fileName}」提取出 ${state.previewItems.length} 条密码记录，请核对下方列表后加密上传。`;
+    statusEl.textContent = `解析完成 [${modeName}]：从「${result.fileName}」提取出 ${state.previewItems.length} 条密码记录，请核对下方列表后加密上传。`;
     setImporterStep(state.previewItems.length > 0 ? 3 : 1);
     renderPreviewTable();
   } catch (err) {
@@ -1966,10 +2083,10 @@ function renderPreviewTable() {
     const tdScope = document.createElement("td");
     const sel = document.createElement("select");
     for (const [val, label] of [
-      ["universal", "🌐 三端通用"],
-      ["web", "🕸 网页端"],
-      ["desktop", "💻 电脑端"],
-      ["mobile", "📱 手机端"],
+      ["universal", "三端通用"],
+      ["web", "网页端"],
+      ["desktop", "电脑端"],
+      ["mobile", "手机端"],
     ]) {
       const opt = document.createElement("option");
       opt.value = val;
@@ -2145,7 +2262,7 @@ async function getDesktopAppVersion() {
   } catch {
     /* 忽略 */
   }
-  return "2.1.0";
+  return "2.2.0";
 }
 
 function renderDesktopUpdateState(res = state.pendingUpdate, explicitMsg = "") {
@@ -2155,7 +2272,16 @@ function renderDesktopUpdateState(res = state.pendingUpdate, explicitMsg = "") {
   const hasUpd = Boolean(res?.hasUpdate);
   if (navBtn) {
     navBtn.classList.toggle("has-update", hasUpd);
-    navBtn.textContent = hasUpd ? "⚙ 设置 ●" : "⚙ 设置";
+    navBtn.textContent = "";
+    const lbl = document.createElement("span");
+    lbl.textContent = "设置";
+    navBtn.append(svgIcon("settings", "ic sm"), lbl);
+    if (hasUpd) {
+      const dot = document.createElement("span");
+      dot.className = "upd-dot";
+      dot.setAttribute("aria-hidden", "true");
+      navBtn.appendChild(dot);
+    }
   }
   if (hasUpd) {
     if (statusEl) {
@@ -2164,7 +2290,10 @@ function renderDesktopUpdateState(res = state.pendingUpdate, explicitMsg = "") {
     }
     if (applyBtn) {
       applyBtn.hidden = false;
-      applyBtn.textContent = `⬇ 一键更新至 v${res.latestVersion}`;
+      applyBtn.textContent = "";
+      const txt = document.createElement("span");
+      txt.textContent = `一键更新至 v${res.latestVersion}`;
+      applyBtn.append(svgIcon("download", "ic sm"), txt);
     }
   } else if (explicitMsg && statusEl) {
     statusEl.hidden = false;
@@ -2207,6 +2336,7 @@ async function openSettings() {
   await refreshPinStatus();
   const curVer = await getDesktopAppVersion();
   if ($("st-cur-ver")) $("st-cur-ver").textContent = `v${curVer}`;
+  if ($("st-theme")) $("st-theme").value = state.prefs.theme || "dark";
   if ($("st-update-url")) $("st-update-url").value = state.prefs.updateManifestUrl || "";
   $("st-watch-enabled").checked = Boolean(state.prefs.watchEnabled);
   $("st-lock-mins").value = state.prefs.lockMinutes ?? 30;
@@ -2218,6 +2348,11 @@ async function openSettings() {
   renderDesktopUpdateState(state.pendingUpdate, "");
   showRightPane("settings");
 }
+
+$("st-theme")?.addEventListener("change", () => {
+  const preview = $("st-theme").value;
+  if (VALID_THEMES.has(preview)) applyTheme(preview);
+});
 
 $("btn-st-check-update")?.addEventListener("click", async () => {
   savePrefs({ updateManifestUrl: ($("st-update-url")?.value || "").trim() });
@@ -2256,17 +2391,21 @@ $("btn-st-apply-update")?.addEventListener("click", async () => {
 
 $("btn-open-settings").addEventListener("click", openSettings);
 $("btn-st-close").addEventListener("click", () => {
+  applyTheme(state.prefs.theme || "dark");
   if (state.selectedId) openDetail(state.selectedId);
   else showRightPane("welcome");
 });
 
 $("btn-st-save").addEventListener("click", async () => {
+  const theme = VALID_THEMES.has($("st-theme")?.value) ? $("st-theme").value : (state.prefs.theme || "dark");
   savePrefs({
+    theme,
     watchEnabled: $("st-watch-enabled").checked,
     lockMinutes: Math.max(0, Math.min(1440, Number($("st-lock-mins").value) || 0)),
     clipboardClearSeconds: Math.max(5, Math.min(300, Number($("st-clip-sec").value) || 30)),
     updateManifestUrl: ($("st-update-url")?.value || "").trim(),
   });
+  applyTheme(theme);
   touchActivity();
   await pushWatchStateToRust();
   showToast("设置已保存");

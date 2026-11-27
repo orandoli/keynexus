@@ -55,6 +55,7 @@ import javax.net.ssl.X509TrustManager
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
+    private lateinit var rootContainer: FrameLayout
     private var fileUploadCallback: ValueCallback<Array<Uri>>? = null
     private val ioPool = Executors.newCachedThreadPool()
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -78,9 +79,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         @Suppress("DEPRECATION")
-        window.statusBarColor = Color.parseColor("#090F16")
+        window.statusBarColor = Color.parseColor("#09090B")
         @Suppress("DEPRECATION")
-        window.navigationBarColor = Color.parseColor("#111C29")
+        window.navigationBarColor = Color.parseColor("#0C0D10")
         WindowCompat.getInsetsController(window, window.decorView).apply {
             isAppearanceLightStatusBars = false
             isAppearanceLightNavigationBars = false
@@ -91,7 +92,7 @@ class MainActivity : AppCompatActivity() {
             .build()
 
         webView = WebView(this).apply {
-            setBackgroundColor(Color.parseColor("#090F16"))
+            setBackgroundColor(Color.parseColor("#09090B"))
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.allowFileAccess = false
@@ -147,8 +148,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         // 使用外层 FrameLayout 承载系统栏/挖孔屏/软键盘内边距（WebView 自身内部渲染层会忽略直接设在 WebView 上的 padding）
-        val rootContainer = FrameLayout(this).apply {
-            setBackgroundColor(Color.parseColor("#090F16"))
+        rootContainer = FrameLayout(this).apply {
+            setBackgroundColor(Color.parseColor("#09090B"))
             addView(webView, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         }
         setContentView(rootContainer)
@@ -181,6 +182,29 @@ class MainActivity : AppCompatActivity() {
     }
 
     inner class NativeBridge {
+
+        @JavascriptInterface
+        fun setSystemTheme(theme: String) {
+            val isLight = theme.equals("light", ignoreCase = true)
+            val statusColor = Color.parseColor(if (isLight) "#F5F6F8" else "#09090B")
+            val navColor = Color.parseColor(if (isLight) "#FFFFFF" else "#0C0D10")
+            mainHandler.post {
+                @Suppress("DEPRECATION")
+                window.statusBarColor = statusColor
+                @Suppress("DEPRECATION")
+                window.navigationBarColor = navColor
+                WindowCompat.getInsetsController(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = isLight
+                    isAppearanceLightNavigationBars = isLight
+                }
+                if (::rootContainer.isInitialized) {
+                    rootContainer.setBackgroundColor(statusColor)
+                }
+                if (::webView.isInitialized) {
+                    webView.setBackgroundColor(statusColor)
+                }
+            }
+        }
 
         @JavascriptInterface
         fun httpRequestAsync(callbackId: String, reqJson: String) {
@@ -345,11 +369,11 @@ class MainActivity : AppCompatActivity() {
                     pInfo.versionCode.toLong()
                 }
                 JSONObject()
-                    .put("versionName", pInfo.versionName ?: "2.1.0")
+                    .put("versionName", pInfo.versionName ?: "2.2.0")
                     .put("versionCode", code)
                     .toString()
             }.getOrElse {
-                """{"versionName":"2.1.0","versionCode":212}"""
+                """{"versionName":"2.2.0","versionCode":213}"""
             }
         }
 

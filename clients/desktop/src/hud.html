@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -15,7 +15,12 @@
           <b>KeyNexus</b>
           <span class="exe-tag" id="hud-exe">app.exe</span>
         </div>
-        <button type="button" class="close-btn" id="btn-hud-close" title="关闭">×</button>
+        <button type="button" class="close-btn" id="btn-hud-close" title="关闭" aria-label="关闭">
+          <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
       </header>
 
       <div id="hud-matched" class="hud-body">
@@ -25,7 +30,13 @@
         </div>
         <div class="user-hint" id="hud-user-hint"></div>
         <div class="hud-actions">
-          <button type="button" class="primary" id="btn-hud-type-pwd">⌨ 键入密码</button>
+          <button type="button" class="primary" id="btn-hud-type-pwd">
+            <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="2" y="4" width="20" height="16" rx="2" />
+              <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10" />
+            </svg>
+            <span>键入密码</span>
+          </button>
           <button type="button" class="ghost" id="btn-hud-type-both" title="依次键入 账号 -> Tab -> 密码">账号+密码</button>
           <button type="button" class="ghost" id="btn-hud-copy">复制</button>
           <button type="button" class="muted-btn" id="btn-hud-mute" title="本次进程关闭前不再自动弹出">静默</button>
@@ -35,7 +46,13 @@
       <div id="hud-unmatched" class="hud-body" hidden>
         <p class="unmatched-text" id="hud-unmatched-text">当前程序尚未绑定密码记录</p>
         <div class="hud-actions">
-          <button type="button" class="primary" id="btn-hud-add-app">＋ 为此程序提交密码</button>
+          <button type="button" class="primary" id="btn-hud-add-app">
+            <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span>为此程序提交密码</span>
+          </button>
           <button type="button" class="ghost" id="btn-hud-dismiss">稍后</button>
         </div>
       </div>

@@ -2,7 +2,7 @@
 
 [package]
 name = "pwdsv-desktop"
-version = "2.1.0"
+version = "2.2.0"
 description = "PWDSV Windows 桌面客户端 —— 网站与本地桌面应用密码守护助手"
 authors = ["PWDSV"]
 edition = "2021"

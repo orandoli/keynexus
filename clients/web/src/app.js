@@ -14,7 +14,7 @@ import { RealtimeHub } from "./lib/realtime.js";
 import { PRESET_PROVIDERS, parsePasswordFile, testProviderConnection, fetchProviderModels } from "./lib/importer/index.js";
 import { compareSemver, fetchReleaseCatalog, checkClientUpdate } from "./lib/updater.js";
 
-const WEB_APP_VERSION = "2.1.0";
+const WEB_APP_VERSION = "2.2.0";
 const PREFS_KEY = "pwdsv_web_prefs_v1";
 const SESSION_KEY = "keynexus_web_session_v1";
 const PROVIDERS_KEY = "pwdsv_web_ai_providers_v1";

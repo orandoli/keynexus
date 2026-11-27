@@ -72,7 +72,102 @@ function makeMobileFetch(insecureTls = false) {
 
 const $ = (id) => document.getElementById(id);
 
+const THEME_KEY = "pwdsv_mobile_theme_v1";
+const VALID_THEMES = new Set(["system", "dark", "light"]);
+const systemDarkMq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+const SVG_ICONS = {
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+  moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+  star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+  globe: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+  monitor: '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+  smartphone: '<rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+  search: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+  chevronRight: '<polyline points="9 18 15 12 9 6"/>',
+};
+
+function svgIcon(name, className = "ic sm", { filled = false } = {}) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("class", filled ? `${className} filled` : className);
+  svg.innerHTML = SVG_ICONS[name] || "";
+  return svg;
+}
+
+function loadMobileTheme() {
+  try {
+    const raw = localStorage.getItem(THEME_KEY);
+    if (VALID_THEMES.has(raw)) return raw;
+  } catch {
+    /* 忽略本地存储异常 */
+  }
+  return "dark";
+}
+
+function saveMobileTheme(themePref) {
+  const next = VALID_THEMES.has(themePref) ? themePref : "dark";
+  try {
+    localStorage.setItem(THEME_KEY, next);
+  } catch {
+    /* 忽略 */
+  }
+  return next;
+}
+
+function resolveMobileTheme(themePref = state.theme) {
+  if (themePref === "light") return "light";
+  if (themePref === "dark") return "dark";
+  return systemDarkMq?.matches ? "dark" : "light";
+}
+
+function updateMobileThemeButtons(resolved) {
+  const nextIcon = resolved === "dark" ? "sun" : "moon";
+  const nextLabel = resolved === "dark" ? "浅色" : "深色";
+  const nextTitle = resolved === "dark" ? "切换到陶瓷浅色主题" : "切换到黑曜石深色主题";
+
+  const authBtn = $("btn-m-auth-theme");
+  if (authBtn) {
+    authBtn.textContent = "";
+    authBtn.title = nextTitle;
+    authBtn.setAttribute("aria-label", nextTitle);
+    const lbl = document.createElement("span");
+    lbl.id = "m-auth-theme-label";
+    lbl.textContent = nextLabel;
+    authBtn.append(svgIcon(nextIcon, "ic sm"), lbl);
+  }
+
+  const topBtn = $("btn-m-theme");
+  if (topBtn) {
+    topBtn.textContent = "";
+    topBtn.title = nextTitle;
+    topBtn.setAttribute("aria-label", nextTitle);
+    topBtn.appendChild(svgIcon(nextIcon, "ic md"));
+  }
+}
+
+function applyMobileTheme(themePref = state.theme) {
+  const resolved = resolveMobileTheme(themePref);
+  document.documentElement.dataset.theme = resolved;
+  updateMobileThemeButtons(resolved);
+  if ($("m-theme") && VALID_THEMES.has(themePref)) {
+    $("m-theme").value = themePref;
+  }
+  window.PwdsvAndroid?.setSystemTheme?.(resolved);
+  return resolved;
+}
+
+function toggleQuickMobileTheme() {
+  const currentResolved = resolveMobileTheme(state.theme);
+  const next = currentResolved === "dark" ? "light" : "dark";
+  state.theme = saveMobileTheme(next);
+  applyMobileTheme(state.theme);
+}
+
 const state = {
+  theme: loadMobileTheme(),
   deviceId:
     secureGet("device_id") ||
     (() => {
@@ -645,9 +740,12 @@ function renderVaultList() {
 
     const t1 = document.createElement("div");
     t1.className = "t1";
+    if (item.favorite) {
+      t1.appendChild(svgIcon("star", "ic sm fav-star-ic", { filled: true }));
+    }
     const nm = document.createElement("span");
     nm.className = "m-title-ellipsis";
-    nm.textContent = (item.favorite ? "★ " : "") + (item.name || "(未命名)");
+    nm.textContent = item.name || "(未命名)";
 
     const sc = resolveItemScope(item);
     const tag = document.createElement("em");
@@ -702,11 +800,11 @@ function copyTextSensitive(val, label) {
   toast(`${label}已安全复制（30 秒后自动清空）`);
 }
 
-function uriIcon(uri) {
+function createUriIcon(uri) {
   const u = String(uri || "");
-  if (/^androidapp:\/\//i.test(u)) return "📱";
-  if (/^app:\/\//i.test(u)) return "💻";
-  return "🌐";
+  if (/^androidapp:\/\//i.test(u)) return svgIcon("smartphone", "ic sm");
+  if (/^app:\/\//i.test(u)) return svgIcon("monitor", "ic sm");
+  return svgIcon("globe", "ic sm");
 }
 
 function openDetail(id, returnTab = state.detailReturnTab || "vault") {
@@ -721,7 +819,8 @@ function openDetail(id, returnTab = state.detailReturnTab || "vault") {
   applyAvatar($("md-avatar"), item.name || item.username, item.id);
   $("md-name").textContent = item.name || "(未命名)";
   if ($("btn-md-fav")) {
-    $("btn-md-fav").textContent = item.favorite ? "★" : "☆";
+    $("btn-md-fav").textContent = "";
+    $("btn-md-fav").appendChild(svgIcon("star", "ic", { filled: Boolean(item.favorite) }));
     $("btn-md-fav").style.opacity = item.favorite ? "1" : "0.45";
   }
 
@@ -749,7 +848,8 @@ function openDetail(id, returnTab = state.detailReturnTab || "vault") {
     const chip = document.createElement("div");
     chip.className = "m-uri-chip";
     const ic = document.createElement("span");
-    ic.textContent = uriIcon(u.uri);
+    ic.className = "m-uri-ic";
+    ic.appendChild(createUriIcon(u.uri));
     const sp = document.createElement("span");
     sp.textContent = u.uri;
     chip.append(ic, sp);
@@ -771,7 +871,7 @@ function openDetail(id, returnTab = state.detailReturnTab || "vault") {
         if (c) {
           const offset = circumference * (1 - remaining / (period || 30));
           c.setAttribute("stroke-dashoffset", offset.toFixed(2));
-          c.style.stroke = remaining <= 5 ? "#f59e0b" : "#34d399";
+          c.style.stroke = remaining <= 5 ? "var(--warn)" : "var(--totp)";
         }
       } catch {
         $("md-totp").textContent = "无效密钥";
@@ -816,7 +916,7 @@ $("btn-md-fav")?.addEventListener("click", async () => {
     await api.updateCipher(token, item.id, payload);
     await syncVault(true);
     openDetail(item.id);
-    toast(nextFav ? "★ 已收藏" : "已取消收藏");
+    toast(nextFav ? "已收藏" : "已取消收藏");
   } catch (err) {
     toast("操作失败：" + err.message);
   }
@@ -880,7 +980,7 @@ async function refreshAuthCodesOnly() {
         const total = period || 30;
         const offset = circumference * (1 - remaining / total);
         ref.circleEl.setAttribute("stroke-dashoffset", offset.toFixed(2));
-        ref.circleEl.style.stroke = remaining <= 5 ? "#f59e0b" : "#34d399";
+        ref.circleEl.style.stroke = remaining <= 5 ? "var(--warn)" : "var(--totp)";
       } catch {
         ref.currentCode = "";
         ref.codeEl.classList.add("invalid");
@@ -948,7 +1048,13 @@ function renderAuthList() {
     titleLine.className = "m-auth-title-line";
     const nm = document.createElement("span");
     nm.className = "m-auth-card-name";
-    nm.textContent = (item.favorite ? "★ " : "") + (item.name || "(未命名)");
+    if (item.favorite) {
+      nm.appendChild(svgIcon("star", "ic sm fav-star-ic", { filled: true }));
+    }
+    const nmTxt = document.createElement("span");
+    nmTxt.className = "m-title-ellipsis";
+    nmTxt.textContent = item.name || "(未命名)";
+    nm.appendChild(nmTxt);
     const usr = document.createElement("span");
     usr.className = "m-auth-card-user";
     usr.textContent = item.username || item.uris?.[0]?.uri || "验证器";
@@ -964,11 +1070,7 @@ function renderAuthList() {
     btnDetail.type = "button";
     btnDetail.className = "m-auth-chevron";
     btnDetail.setAttribute("aria-label", "查看详情");
-    btnDetail.innerHTML = `
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M9 6l6 6-6 6" />
-      </svg>
-    `;
+    btnDetail.appendChild(svgIcon("chevronRight", "ic md"));
     btnDetail.addEventListener("click", (ev) => {
       ev.stopPropagation();
       openDetail(item.id, "auth");
@@ -1389,10 +1491,10 @@ function renderMobilePreviewCards() {
           <span class="m-tag">${statusLabel}</span>
         </label>
         <select class="pc-scope" style="width:132px;padding:5px 8px;font-size:12px">
-          <option value="universal">🌐 三端通用</option>
-          <option value="mobile">📱 手机端</option>
-          <option value="desktop">💻 电脑端</option>
-          <option value="web">🕸 网页端</option>
+          <option value="universal">三端通用</option>
+          <option value="mobile">手机端</option>
+          <option value="desktop">电脑端</option>
+          <option value="web">网页端</option>
         </select>
       </div>
       <div class="m-grid-2" style="margin-bottom:6px">
@@ -1517,14 +1619,14 @@ function getMobileAppVersion() {
     try {
       const info = JSON.parse(native.getAppVersionJson() || "{}");
       return {
-        versionName: info.versionName || "2.1.0",
-        versionCode: Number(info.versionCode || 212),
+        versionName: info.versionName || "2.2.0",
+        versionCode: Number(info.versionCode || 213),
       };
     } catch {
       /* 忽略 */
     }
   }
-  return { versionName: "2.1.0", versionCode: 212 };
+  return { versionName: "2.2.0", versionCode: 213 };
 }
 
 window.__pwdsvUpdateProgress = (pct) => {
@@ -1537,6 +1639,15 @@ window.__pwdsvUpdateProgress = (pct) => {
     info.textContent = `正在下载更新包… ${pct}%`;
   }
 };
+
+function setInstallUpdateBtnVersion(btn, version) {
+  if (!btn) return;
+  btn.hidden = false;
+  btn.textContent = "";
+  const lbl = document.createElement("span");
+  lbl.textContent = `一键下载并安装 v${version}`;
+  btn.append(svgIcon("download", "ic sm"), lbl);
+}
 
 async function checkMobileUpdate(silent = false) {
   const ver = getMobileAppVersion();
@@ -1572,8 +1683,7 @@ async function checkMobileUpdate(silent = false) {
         infoEl.textContent = `发现新版 v${res.latestVersion}${res.notes ? ` · ${res.notes}` : ""}`;
       }
       if (installBtn) {
-        installBtn.hidden = false;
-        installBtn.textContent = `⬇ 一键下载并安装 v${res.latestVersion}`;
+        setInstallUpdateBtnVersion(installBtn, res.latestVersion);
       }
     } else if (!silent) {
       if (infoEl) {
@@ -1661,14 +1771,16 @@ function populateProviderSettingsUI() {
   const ver = getMobileAppVersion();
   if ($("mu-cur-ver")) $("mu-cur-ver").textContent = `v${ver.versionName}`;
   if ($("mu-manifest-url")) $("mu-manifest-url").value = secureGet("update_manifest_url") || "";
+  if ($("m-theme")) {
+    $("m-theme").value = state.theme;
+  }
   if (state.pendingUpdate?.hasUpdate) {
     if ($("mu-info")) {
       $("mu-info").hidden = false;
       $("mu-info").textContent = `发现新版 v${state.pendingUpdate.latestVersion}${state.pendingUpdate.notes ? ` · ${state.pendingUpdate.notes}` : ""}`;
     }
     if ($("btn-mu-install")) {
-      $("btn-mu-install").hidden = false;
-      $("btn-mu-install").textContent = `⬇ 一键下载并安装 v${state.pendingUpdate.latestVersion}`;
+      setInstallUpdateBtnVersion($("btn-mu-install"), state.pendingUpdate.latestVersion);
     }
   }
   const listSel = $("mp-list");
@@ -1676,7 +1788,7 @@ function populateProviderSettingsUI() {
   for (const p of state.providers) {
     const opt = document.createElement("option");
     opt.value = p.id;
-    opt.textContent = (p.id === state.activeProviderId ? "● " : "") + p.name;
+    opt.textContent = (p.id === state.activeProviderId ? "[当前] " : "") + p.name;
     listSel.appendChild(opt);
   }
 
@@ -1727,7 +1839,7 @@ async function detectMobileProviderModels(silent = false) {
   }
   const msg = $("mp-msg");
   const btn = $("btn-mp-detect");
-  const origBtn = btn?.textContent || "🔍 检测模型";
+  const origChildren = btn ? Array.from(btn.childNodes).map((n) => n.cloneNode(true)) : null;
   if (!silent && msg) msg.textContent = "正在检测可用模型…";
   if (btn) {
     btn.disabled = true;
@@ -1773,7 +1885,12 @@ async function detectMobileProviderModels(silent = false) {
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.textContent = origBtn;
+      if (origChildren?.length) {
+        btn.textContent = "";
+        btn.append(...origChildren);
+      } else {
+        btn.textContent = "检测模型";
+      }
     }
   }
 }
@@ -1870,5 +1987,16 @@ $("btn-mp-test").addEventListener("click", async () => {
 });
 
 /* ------------------------------------------------------------------ 启动 */
+applyMobileTheme(state.theme);
+systemDarkMq?.addEventListener?.("change", () => {
+  if (state.theme === "system") applyMobileTheme("system");
+});
+$("btn-m-auth-theme")?.addEventListener("click", toggleQuickMobileTheme);
+$("btn-m-theme")?.addEventListener("click", toggleQuickMobileTheme);
+$("m-theme")?.addEventListener("change", (e) => {
+  state.theme = saveMobileTheme(e.target.value);
+  applyMobileTheme(state.theme);
+});
+
 loadMobileProviders();
 showAuthView(true);

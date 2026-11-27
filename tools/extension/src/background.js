@@ -875,7 +875,7 @@ const handlers = {
     const serverUrl = normalizeServerUrl(msg?.serverUrl || settings.serverUrl || "");
     const customManifestUrl =
       msg?.customManifestUrl !== undefined ? msg.customManifestUrl : settings.updateManifestUrl || "";
-    const currentVersion = chrome.runtime.getManifest?.().version || "2.1.0";
+    const currentVersion = chrome.runtime.getManifest?.().version || "2.2.0";
     return checkClientUpdate({
       platform: "extension",
       currentVersion,
