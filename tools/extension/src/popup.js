@@ -28,6 +28,7 @@ const el = {
   twoFactorField: $("twofactor-field"),
   twoFactorProvider: $("twofactor-provider"),
   twoFactor: $("twofactor"),
+  keepSignedIn: $("keep-signed-in"),
   btnSendEmailOtp: $("btn-send-email-otp"),
   unlockForm: $("unlock-form"),
   unlockBtn: $("btn-unlock"),
@@ -296,6 +297,7 @@ async function doUnlock(event) {
       password: el.password.value,
       twoFactorToken: has2faShown ? el.twoFactor.value.trim() || undefined : undefined,
       twoFactorProvider: has2faShown ? Number(el.twoFactorProvider.value || 0) : 0,
+      persistSession: el.keepSignedIn ? el.keepSignedIn.checked : true,
     });
 
     if (res?.needsTwoFactor) {
@@ -349,6 +351,7 @@ async function refreshStatus() {
     showView("locked");
     el.server.value = st.serverUrl || "";
     el.email.value = st.email || "";
+    if (el.keepSignedIn) el.keepSignedIn.checked = st.persistSession !== false;
     status("未解锁");
     return false;
   }
@@ -815,6 +818,7 @@ async function init() {
       showView("locked");
       el.server.value = st.serverUrl || "";
       el.email.value = st.email || "";
+      if (el.keepSignedIn) el.keepSignedIn.checked = st.persistSession !== false;
       if (!st.serverUrl) el.lockedHint.textContent = "首次使用请先填写 PWDSV 服务器地址（如 https://你的域名）。";
       status("未解锁");
       (st.serverUrl ? el.password : el.server).focus();

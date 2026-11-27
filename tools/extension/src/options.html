@@ -30,8 +30,12 @@
       <section class="card">
         <h2>提示与记录行为</h2>
         <label class="check">
+          <input id="persistSession" type="checkbox" />
+          <span>保持登录状态（重启浏览器免重新登录，仅手动锁定时清除）</span>
+        </label>
+        <label class="check">
           <input id="lockMinutes" type="number" min="0" max="1440" step="1" />
-          <span>自动锁定（分钟，0 = 不自动锁；关闭浏览器必锁）</span>
+          <span>自动锁定（分钟，默认 0 = 不自动锁）</span>
         </label>
         <label class="check">
           <input id="loginToast" type="checkbox" />
@@ -68,8 +72,8 @@
       <section class="card">
         <h2>安全</h2>
         <p class="muted small">
-          主密码不会被落盘保存；解锁后的对称密钥与条目缓存仅存于
-          <code>chrome.storage.session</code> 内存会话中，浏览器完全关闭即销毁。
+          主密码永不落盘；开启「保持登录状态」时会在本机
+          <code>chrome.storage.local</code> 保存解锁后的对称密钥与条目缓存以便重启浏览器免登录，关闭该开关则仅存于内存会话。点击手动锁定会立即清除两处密钥。
         </p>
         <div class="row">
           <button id="btn-clear" class="danger">清空本地设置并锁定</button>

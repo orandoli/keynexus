@@ -15,7 +15,7 @@
 /* ------------------------------------------------------------------ chrome 打桩 */
 const localStore = new Map();
 const sessionStore = new Map();
-const listeners = { message: null, command: null, alarm: null, installed: null, menu: null };
+const listeners = { message: null, command: null, alarm: null, installed: null, startup: null, menu: null };
 
 function area(store) {
   return {
@@ -43,6 +43,7 @@ globalThis.chrome = {
   runtime: {
     onMessage: { addListener: (fn) => (listeners.message = fn) },
     onInstalled: { addListener: (fn) => (listeners.installed = fn) },
+    onStartup: { addListener: (fn) => (listeners.startup = fn) },
     lastError: null,
     getManifest: () => ({ version: "2.0.0" }),
   },
@@ -318,10 +319,30 @@ await new Promise((r) => setTimeout(r, 750));
 const afterWs = await call({ type: "list", scope: "all" });
 ok("收到推送后后台自动完成增量同步", afterWs.total === 2 && afterWs.items.some((i) => i.name === "桌面端刚存的密码"), afterWs.items);
 
+console.log("[7.5] 持久化登录态：模拟重启浏览器免重新登录，网络抖动不误清会话");
+ok("解锁后已将持久化会话写入 storage.local", localStore.has("persistentSession"));
+sessionStore.clear();
+const stAfterRestart = await call({ type: "status" });
+const listAfterRestart = await call({ type: "list", scope: "all" });
+ok("清空 storage.session 模拟重启浏览器后仍处于已解锁状态", stAfterRestart.locked === false && listAfterRestart.total === 2, { stAfterRestart, listAfterRestart });
+
+// 模拟 accessToken 过期且刷新接口遇短暂网络断开时，不清空持久化会话
+const savedSession = localStore.get("persistentSession");
+savedSession.tokenExpiresAt = 0;
+localStore.set("persistentSession", savedSession);
+sessionStore.set("session", structuredClone(savedSession));
+bg.__setTestTransports({
+  fetchImpl: async () => { throw new Error("network offline"); },
+  WebSocketImpl: MockWebSocket,
+});
+const netFailSync = await call({ type: "sync" });
+ok("刷新 token 遇网络断开时报错但保留本地持久化登录态", Boolean(netFailSync.error) && localStore.has("persistentSession") && sessionStore.has("session"), netFailSync);
+bg.__setTestTransports({ fetchImpl: mockFetch, WebSocketImpl: MockWebSocket });
+
 console.log("[8] 锁定后一切归零并断开 WebSocket");
 await call({ type: "lock" });
 const st2 = await call({ type: "status" });
-ok("回到锁定且 WS 已关闭", st2.locked === true && wsInstances[0].readyState === 3);
+ok("回到锁定、清空持久化会话且 WS 已关闭", st2.locked === true && !localStore.has("persistentSession") && wsInstances[0].readyState === 3);
 
 console.log("");
 console.log(pass + " 通过, " + fail + " 失败");

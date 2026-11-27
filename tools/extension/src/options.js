@@ -42,7 +42,8 @@ async function load() {
   const settings = await send({ type: "settings" });
   $("server").value = settings.serverUrl || "";
   $("email").value = settings.email || "";
-  $("lockMinutes").value = settings.lockMinutes ?? 15;
+  if ($("persistSession")) $("persistSession").checked = settings.persistSession !== false;
+  $("lockMinutes").value = settings.lockMinutes ?? 0;
   $("loginToast").checked = settings.loginToast !== false;
   $("autofillOnLoad").checked = Boolean(settings.autofillOnLoad);
   $("savePrompt").checked = settings.savePrompt !== false;
@@ -60,6 +61,7 @@ async function save() {
   const patch = {
     serverUrl: ($("server").value || "").trim(),
     email: ($("email").value || "").trim(),
+    persistSession: $("persistSession") ? $("persistSession").checked : true,
     lockMinutes: Math.max(0, Math.min(1440, Number($("lockMinutes").value) || 0)),
     loginToast: $("loginToast").checked,
     autofillOnLoad: $("autofillOnLoad").checked,
@@ -75,6 +77,7 @@ async function save() {
 for (const id of [
   "server",
   "email",
+  "persistSession",
   "lockMinutes",
   "loginToast",
   "autofillOnLoad",

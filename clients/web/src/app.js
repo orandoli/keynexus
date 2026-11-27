@@ -5,7 +5,7 @@
  */
 
 import { PwdsvApi, ApiError, parseTwoFactorProviders, normalizeServerUrl } from "./lib/api.js";
-import { deriveMasterKey, hashMasterPassword, makeRegisterPayload } from "./lib/crypto.js";
+import { deriveMasterKey, hashMasterPassword, makeRegisterPayload, SymmetricCryptoKey } from "./lib/crypto.js";
 import { unlockUserKey, decryptSync, buildLoginCipherPayload } from "./lib/vault.js";
 import { generateTotp, parseTotp } from "./lib/totp.js";
 import { resolveItemScope, SCOPE_LABELS } from "./lib/matcher.js";
@@ -14,18 +14,23 @@ import { RealtimeHub } from "./lib/realtime.js";
 import { PRESET_PROVIDERS, parsePasswordFile, testProviderConnection, fetchProviderModels } from "./lib/importer/index.js";
 import { compareSemver, fetchReleaseCatalog, checkClientUpdate } from "./lib/updater.js";
 
-const WEB_APP_VERSION = "2.0.10";
+const WEB_APP_VERSION = "2.0.11";
 const PREFS_KEY = "pwdsv_web_prefs_v1";
+const SESSION_KEY = "keynexus_web_session_v1";
 const PROVIDERS_KEY = "pwdsv_web_ai_providers_v1";
+let lastPersistTouchAt = 0;
 
 function loadPrefs() {
   try {
     const raw = JSON.parse(localStorage.getItem(PREFS_KEY) || "{}");
+    const hasKeepSignedIn = Object.prototype.hasOwnProperty.call(raw, "keepSignedIn");
+    const migratedLock = !hasKeepSignedIn && (raw.lockMinutes === 30 || raw.lockMinutes == null) ? 0 : (raw.lockMinutes ?? 0);
     const prefs = {
       serverUrl: raw.serverUrl || window.location.origin,
       email: raw.email || "",
       deviceId: raw.deviceId || crypto.randomUUID(),
-      lockMinutes: raw.lockMinutes ?? 30,
+      keepSignedIn: hasKeepSignedIn ? Boolean(raw.keepSignedIn) : true,
+      lockMinutes: migratedLock,
       clipboardClearSeconds: raw.clipboardClearSeconds ?? 30,
       updateManifestUrl: raw.updateManifestUrl || "",
     };
@@ -36,12 +41,46 @@ function loadPrefs() {
       serverUrl: window.location.origin,
       email: "",
       deviceId: crypto.randomUUID(),
-      lockMinutes: 30,
+      keepSignedIn: true,
+      lockMinutes: 0,
       clipboardClearSeconds: 30,
       updateManifestUrl: "",
     };
     localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
     return prefs;
+  }
+}
+
+function persistWebSession(session) {
+  try {
+    if (state.prefs.keepSignedIn === false || !session?.userKey) {
+      localStorage.removeItem(SESSION_KEY);
+      return;
+    }
+    localStorage.setItem(
+      SESSION_KEY,
+      JSON.stringify({
+        userKeyB64: session.userKey.toB64(),
+        userId: session.userId || "",
+        keyId: session.keyId || null,
+        email: session.email || "",
+        serverUrl: session.serverUrl || "",
+        accessToken: session.accessToken || "",
+        refreshToken: session.refreshToken || "",
+        tokenExpiresAt: session.tokenExpiresAt || 0,
+        lastActiveAt: Date.now(),
+      }),
+    );
+  } catch {
+    // Ignore storage quota or private-mode failures.
+  }
+}
+
+function clearPersistedWebSession() {
+  try {
+    localStorage.removeItem(SESSION_KEY);
+  } catch {
+    // Ignore storage cleanup failures.
   }
 }
 
@@ -106,6 +145,10 @@ function touchActivity() {
   const mins = Number(state.prefs.lockMinutes || 0);
   if (mins > 0) {
     state.idleTimer = setTimeout(() => lockVault("空闲超时，网页端已自动锁定"), mins * 60000);
+    if (state.prefs.keepSignedIn !== false && Date.now() - lastPersistTouchAt > 30000) {
+      lastPersistTouchAt = Date.now();
+      persistWebSession(state.session);
+    }
   }
 }
 ["mousedown", "keydown"].forEach((ev) => document.addEventListener(ev, touchActivity, true));
@@ -250,11 +293,19 @@ async function ensureAccessToken() {
   if (!s) throw new Error("密码库已锁定");
   if (s.accessToken && Date.now() < (s.tokenExpiresAt || 0)) return s.accessToken;
   const api = makeApiClient(s.serverUrl);
-  const t = await api.refresh(s.refreshToken);
-  s.accessToken = t.accessToken;
-  s.refreshToken = t.refreshToken;
-  s.tokenExpiresAt = Date.now() + (t.expiresIn || 3600) * 1000 - 60000;
-  return s.accessToken;
+  try {
+    const t = await api.refresh(s.refreshToken);
+    s.accessToken = t.accessToken;
+    s.refreshToken = t.refreshToken;
+    s.tokenExpiresAt = Date.now() + (t.expiresIn || 3600) * 1000 - 60000;
+    persistWebSession(s);
+    return s.accessToken;
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 400 || err.status === 401)) {
+      lockVault("登录状态已过期，请重新登录");
+    }
+    throw err;
+  }
 }
 
 function makeWebAiFetch() {
@@ -597,6 +648,7 @@ function showAuthView() {
   $("auth-server").value = defaultServer;
   if ($("reg-server")) $("reg-server").value = defaultServer;
   $("auth-email").value = state.prefs.email || "";
+  if ($("auth-keep-signed-in")) $("auth-keep-signed-in").checked = state.prefs.keepSignedIn !== false;
   $("auth-error").hidden = true;
   setAuthMode("login");
   renderAuthDownloads();
@@ -691,7 +743,10 @@ $("unlock-form").addEventListener("submit", async (e) => {
     state.folders = vault.folders;
     state.domains = vault.domains;
 
-    savePrefs({ serverUrl, email });
+    const keepSignedIn = $("auth-keep-signed-in") ? $("auth-keep-signed-in").checked : true;
+    savePrefs({ serverUrl, email, keepSignedIn });
+    persistWebSession(state.session);
+    lastPersistTouchAt = Date.now();
     $("auth-password").value = "";
     $("auth-2fa-code").value = "";
     $("auth-2fa-box").hidden = true;
@@ -717,6 +772,7 @@ function lockVault(reason = "网页端已锁定") {
   stopAuthPaneTimer();
   if (state.idleTimer) clearTimeout(state.idleTimer);
   realtimeHub.disconnect();
+  clearPersistedWebSession();
   state.session = null;
   state.items = [];
   state.selectedId = null;
@@ -2563,7 +2619,8 @@ $("btn-mp-close")?.addEventListener("click", closeModelPickerModal);
 $("btn-open-settings").addEventListener("click", () => {
   if ($("st-cur-ver")) $("st-cur-ver").textContent = `v${WEB_APP_VERSION}`;
   if ($("st-update-url")) $("st-update-url").value = state.prefs.updateManifestUrl || "";
-  $("st-lock-mins").value = state.prefs.lockMinutes ?? 30;
+  if ($("st-keep-signed-in")) $("st-keep-signed-in").checked = state.prefs.keepSignedIn !== false;
+  $("st-lock-mins").value = state.prefs.lockMinutes ?? 0;
   $("st-clip-sec").value = state.prefs.clipboardClearSeconds ?? 30;
   showRightPane("settings");
 });
@@ -2573,15 +2630,109 @@ $("btn-st-check-update")?.addEventListener("click", async () => {
 });
 $("btn-st-close").addEventListener("click", () => (state.selectedId ? openDetail(state.selectedId) : showRightPane("welcome")));
 $("btn-st-save").addEventListener("click", () => {
+  const keepSignedIn = $("st-keep-signed-in") ? $("st-keep-signed-in").checked : true;
   savePrefs({
+    keepSignedIn,
     lockMinutes: Math.max(0, Math.min(1440, Number($("st-lock-mins").value) || 0)),
     clipboardClearSeconds: Math.max(5, Math.min(300, Number($("st-clip-sec").value) || 30)),
     updateManifestUrl: ($("st-update-url")?.value || "").trim(),
   });
+  if (!keepSignedIn) clearPersistedWebSession();
+  else if (state.session) persistWebSession(state.session);
   touchActivity();
   showToast("偏好设置已保存");
 });
 
+async function restoreWebSession() {
+  if (state.prefs.keepSignedIn === false) {
+    showAuthView();
+    return;
+  }
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+  } catch {
+    saved = null;
+  }
+  if (!saved?.userKeyB64 || !saved?.serverUrl || (!saved?.refreshToken && !saved?.accessToken)) {
+    showAuthView();
+    return;
+  }
+  const idleMins = Number(state.prefs.lockMinutes || 0);
+  if (idleMins > 0 && saved.lastActiveAt && Date.now() - saved.lastActiveAt > idleMins * 60000) {
+    clearPersistedWebSession();
+    showAuthView();
+    showToast("空闲超时，网页端已自动锁定");
+    return;
+  }
+
+  let userKey;
+  try {
+    userKey = SymmetricCryptoKey.fromB64(saved.userKeyB64);
+  } catch {
+    clearPersistedWebSession();
+    showAuthView();
+    return;
+  }
+
+  state.session = {
+    userKey,
+    userId: saved.userId || "",
+    keyId: saved.keyId || null,
+    email: saved.email || "",
+    serverUrl: saved.serverUrl,
+    accessToken: saved.accessToken || "",
+    refreshToken: saved.refreshToken || "",
+    tokenExpiresAt: saved.tokenExpiresAt || 0,
+  };
+
+  $("auth-screen").hidden = true;
+  $("workspace").hidden = false;
+  $("sidebar-user-email").textContent = saved.email || "";
+  showRightPane("welcome");
+  showToast("正在恢复登录状态…");
+
+  try {
+    let token = await ensureAccessToken();
+    const api = makeApiClient(state.session.serverUrl);
+    let data;
+    try {
+      data = await api.sync(token);
+    } catch (syncErr) {
+      if (syncErr instanceof ApiError && syncErr.status === 401 && state.session.refreshToken) {
+        state.session.tokenExpiresAt = 0;
+        token = await ensureAccessToken();
+        data = await api.sync(token);
+      } else {
+        throw syncErr;
+      }
+    }
+    const vault = await decryptSync(data, state.session.userKey);
+    if (!state.session) return;
+    state.items = vault.items;
+    state.folders = vault.folders;
+    state.domains = vault.domains;
+    touchActivity();
+    persistWebSession(state.session);
+    lastPersistTouchAt = Date.now();
+    realtimeHub.connect(state.session.serverUrl, token);
+    renderSidebarAndList();
+    showRightPane("welcome");
+  } catch (err) {
+    const authRejected = err instanceof ApiError && (err.status === 400 || err.status === 401);
+    if (authRejected) {
+      clearPersistedWebSession();
+      state.session = null;
+      showAuthView();
+      showToast("登录状态已过期，请重新解锁");
+    } else {
+      state.session = null;
+      showAuthView();
+      showToast("暂时无法连接服务器，网络恢复后刷新可自动登录");
+    }
+  }
+}
+
 /* ----------------------------------------------------- 启动 */
 loadProviders();
-showAuthView();
+restoreWebSession();

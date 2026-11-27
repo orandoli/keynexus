@@ -19,6 +19,7 @@ import { checkClientUpdate } from "./lib/updater.js";
 
 const SETTINGS_KEY = "settings";
 const SESSION_KEY = "session";
+const PERSISTENT_SESSION_KEY = "persistentSession";
 const DEVICE_KEY = "deviceId";
 const PENDING_KEY = "pendingCaptures";
 const PENDING_TTL_MS = 3 * 60 * 1000; // 分步登录 / 跳转后保存提示保留 3 分钟
@@ -26,7 +27,8 @@ const PENDING_TTL_MS = 3 * 60 * 1000; // 分步登录 / 跳转后保存提示保
 const DEFAULT_SETTINGS = {
   serverUrl: "",
   email: "",
-  lockMinutes: 15,
+  lockMinutes: 0,
+  persistSession: true,
   autofillOnLoad: false,
   loginToast: true,      // 打开有匹配账号的登录页时右上角给轻提示
   savePrompt: true,      // 提交表单后提示保存 / 更新账号
@@ -73,9 +75,13 @@ async function refreshRealtimeConnection(session) {
 async function getSettings() {
   const raw = await chrome.storage.local.get(SETTINGS_KEY);
   const stored = raw[SETTINGS_KEY] || {};
+  const hasPersist = Object.prototype.hasOwnProperty.call(stored, "persistSession");
+  const lockMinutes = !hasPersist && stored.lockMinutes === 15 ? 0 : (stored.lockMinutes ?? DEFAULT_SETTINGS.lockMinutes);
   return {
     ...DEFAULT_SETTINGS,
     ...stored,
+    lockMinutes,
+    persistSession: hasPersist ? Boolean(stored.persistSession) : DEFAULT_SETTINGS.persistSession,
     neverSaveDomains: Array.isArray(stored.neverSaveDomains) ? stored.neverSaveDomains : [],
   };
 }
@@ -84,10 +90,17 @@ async function saveSettings(patch) {
   const next = { ...(await getSettings()), ...patch };
   await chrome.storage.local.set({ [SETTINGS_KEY]: next });
   const session = await readSession({ touch: false });
-  if (session && patch.lockMinutes !== undefined) {
-    session.lockMinutes = Number(next.lockMinutes ?? 15);
-    session.lockAt = session.lockMinutes > 0 ? Date.now() + session.lockMinutes * 60000 : 0;
-    await writeSession(session);
+  if (patch.persistSession === false) {
+    await chrome.storage.local.remove([PERSISTENT_SESSION_KEY]);
+  }
+  if (session) {
+    if (patch.lockMinutes !== undefined) {
+      session.lockMinutes = Number(next.lockMinutes ?? 0);
+      session.lockAt = session.lockMinutes > 0 ? Date.now() + session.lockMinutes * 60000 : 0;
+    }
+    if (patch.lockMinutes !== undefined || patch.persistSession === true) {
+      await writeSession(session);
+    }
   }
   await refreshRealtimeConnection(session);
   return next;
@@ -103,7 +116,17 @@ async function getDeviceId() {
 
 async function readSession({ touch = true } = {}) {
   const raw = await chrome.storage.session.get(SESSION_KEY);
-  const session = raw[SESSION_KEY] || null;
+  let session = raw[SESSION_KEY] || null;
+  if (!session) {
+    const settings = await getSettings();
+    if (settings.persistSession !== false) {
+      const persisted = await chrome.storage.local.get(PERSISTENT_SESSION_KEY);
+      if (persisted[PERSISTENT_SESSION_KEY]) {
+        session = persisted[PERSISTENT_SESSION_KEY];
+        await chrome.storage.session.set({ [SESSION_KEY]: session });
+      }
+    }
+  }
   if (!session) return null;
 
   if (session.lockAt && Date.now() > session.lockAt) {
@@ -125,11 +148,18 @@ async function readSession({ touch = true } = {}) {
 
 async function writeSession(session) {
   await chrome.storage.session.set({ [SESSION_KEY]: session });
+  const settings = await getSettings();
+  if (settings.persistSession !== false) {
+    await chrome.storage.local.set({ [PERSISTENT_SESSION_KEY]: session });
+  } else {
+    await chrome.storage.local.remove([PERSISTENT_SESSION_KEY]);
+  }
 }
 
 async function clearSession() {
   realtimeHub.disconnect();
   await chrome.storage.session.remove([SESSION_KEY, PENDING_KEY]);
+  await chrome.storage.local.remove([PERSISTENT_SESSION_KEY]);
 }
 
 /* -------------------------------------------------------- 跨页面抓密暂存池 */
@@ -181,7 +211,7 @@ async function makeApi(session, overrideServerUrl) {
 }
 
 /** 解锁：预登录 -> 派生 masterKey -> 登录 -> 同步 -> 解出 userKey 和条目 */
-async function unlock({ email, password, serverUrl, twoFactorToken, twoFactorProvider }) {
+async function unlock({ email, password, serverUrl, twoFactorToken, twoFactorProvider, persistSession }) {
   const settings = await getSettings();
   const base = normalizeServerUrl(serverUrl || settings.serverUrl);
   if (!base) throw new Error("还没填服务器地址，先去设置里填一下");
@@ -218,6 +248,9 @@ async function unlock({ email, password, serverUrl, twoFactorToken, twoFactorPro
   const { userKey } = await unlockUserKey(sync.profile, masterKey);
   const vault = await decryptSync(sync, userKey);
 
+  const nextPersist = persistSession !== undefined ? Boolean(persistSession) : settings.persistSession !== false;
+  await saveSettings({ serverUrl: base, email, persistSession: nextPersist });
+
   const session = withTimeout({
     userKeyB64: userKey.toB64(),
     userId: sync.profile?.id || "",
@@ -236,7 +269,6 @@ async function unlock({ email, password, serverUrl, twoFactorToken, twoFactorPro
   });
 
   await writeSession(session);
-  await saveSettings({ serverUrl: base, email });
   await refreshRealtimeConnection(session);
   return { ok: true, email, itemCount: vault.items.length };
 }
@@ -265,9 +297,12 @@ async function ensureToken(session) {
     await writeSession(session);
     await refreshRealtimeConnection(session);
     return session.accessToken;
-  } catch {
-    await clearSession();
-    throw new Error("登录状态过期了，请重新解锁");
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 400 || err.status === 401)) {
+      await clearSession();
+      throw new Error("登录状态过期了，请重新解锁");
+    }
+    throw new Error("暂时无法连接服务器刷新登录态，请稍后重试");
   }
 }
 
@@ -413,6 +448,7 @@ const handlers = {
       itemCount: session?.items?.length ?? null,
       lastSync: session?.lastSync ?? null,
       lockMinutes: settings.lockMinutes,
+      persistSession: settings.persistSession !== false,
     };
   },
 
@@ -837,7 +873,7 @@ const handlers = {
     const serverUrl = normalizeServerUrl(msg?.serverUrl || settings.serverUrl || "");
     const customManifestUrl =
       msg?.customManifestUrl !== undefined ? msg.customManifestUrl : settings.updateManifestUrl || "";
-    const currentVersion = chrome.runtime.getManifest?.().version || "2.0.10";
+    const currentVersion = chrome.runtime.getManifest?.().version || "2.0.11";
     return checkClientUpdate({
       platform: "extension",
       currentVersion,
@@ -913,6 +949,13 @@ chrome.contextMenus?.onClicked.addListener(async (info, tab) => {
   } else if (info.menuItemId === "pwdsv-manual-save") {
     chrome.tabs.sendMessage(tab.id, { type: "cmd:open-save-modal" }).catch(() => {});
   }
+});
+
+chrome.runtime.onStartup?.addListener(async () => {
+  const session = await readSession({ touch: false });
+  if (!session) return;
+  await refreshRealtimeConnection(session);
+  await syncNow(session).catch(() => {});
 });
 
 /* 定时清理过期会话并保活实时同步 */

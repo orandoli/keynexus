@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>KeyNexus · 零知识网页端</title>
     <link rel="icon" type="image/png" href="favicon.png" />
-    <link rel="stylesheet" href="styles.css?v=2.0.10" />
+    <link rel="stylesheet" href="styles.css?v=2.0.11" />
   </head>
   <body>
     <!-- ==================== 1. 网页端解锁屏 + 四端客户端下载 ==================== -->
@@ -59,6 +59,11 @@
                 </label>
               </div>
             </div>
+
+            <label class="check-row">
+              <input id="auth-keep-signed-in" type="checkbox" checked />
+              <span>保持登录状态（刷新或重启浏览器免重复登录）</span>
+            </label>
 
             <button type="submit" class="primary full" id="btn-unlock">本地派生密钥并解锁</button>
             <p class="error" id="auth-error" hidden></p>
@@ -570,7 +575,7 @@
           <div class="card-head">
             <div class="inline-row">
               <h2 style="margin: 0">⚙ 网页端安全与更新设置</h2>
-              <span id="st-cur-ver" class="badge universal">v2.0.10</span>
+              <span id="st-cur-ver" class="badge universal">v2.0.11</span>
             </div>
             <button type="button" class="ghost small" id="btn-st-close">返回</button>
           </div>
@@ -581,9 +586,13 @@
               <button type="button" class="ghost" id="btn-st-check-update">检查新版</button>
             </div>
           </div>
+          <label class="check-row">
+            <input id="st-keep-signed-in" type="checkbox" />
+            <span>保持登录状态（关闭或刷新网页后无需重新登录，仅手动锁定时清除）</span>
+          </label>
           <div class="grid-two">
             <label class="field">
-              <span>空闲自动锁定时间（分钟，0 = 不自动锁）</span>
+              <span>空闲自动锁定时间（分钟，默认 0 = 不自动锁）</span>
               <input id="st-lock-mins" type="number" min="0" max="1440" />
             </label>
             <label class="field">
@@ -629,23 +638,23 @@
     <script type="importmap">
       {
         "imports": {
-          "./lib/api.js": "./lib/api.js?v=2.0.10",
-          "./lib/crypto.js": "./lib/crypto.js?v=2.0.10",
-          "./lib/vault.js": "./lib/vault.js?v=2.0.10",
-          "./lib/totp.js": "./lib/totp.js?v=2.0.10",
-          "./lib/matcher.js": "./lib/matcher.js?v=2.0.10",
-          "./lib/generator.js": "./lib/generator.js?v=2.0.10",
-          "./lib/realtime.js": "./lib/realtime.js?v=2.0.10",
-          "./lib/updater.js": "./lib/updater.js?v=2.0.10",
-          "./lib/argon2.js": "./lib/argon2.js?v=2.0.10",
-          "./lib/importer/index.js": "./lib/importer/index.js?v=2.0.10",
-          "./lib/importer/extractors.js": "./lib/importer/extractors.js?v=2.0.10",
-          "./lib/importer/providers.js": "./lib/importer/providers.js?v=2.0.10",
-          "./lib/importer/normalizer.js": "./lib/importer/normalizer.js?v=2.0.10",
-          "./lib/importer/zip.js": "./lib/importer/zip.js?v=2.0.10"
+          "./lib/api.js": "./lib/api.js?v=2.0.11",
+          "./lib/crypto.js": "./lib/crypto.js?v=2.0.11",
+          "./lib/vault.js": "./lib/vault.js?v=2.0.11",
+          "./lib/totp.js": "./lib/totp.js?v=2.0.11",
+          "./lib/matcher.js": "./lib/matcher.js?v=2.0.11",
+          "./lib/generator.js": "./lib/generator.js?v=2.0.11",
+          "./lib/realtime.js": "./lib/realtime.js?v=2.0.11",
+          "./lib/updater.js": "./lib/updater.js?v=2.0.11",
+          "./lib/argon2.js": "./lib/argon2.js?v=2.0.11",
+          "./lib/importer/index.js": "./lib/importer/index.js?v=2.0.11",
+          "./lib/importer/extractors.js": "./lib/importer/extractors.js?v=2.0.11",
+          "./lib/importer/providers.js": "./lib/importer/providers.js?v=2.0.11",
+          "./lib/importer/normalizer.js": "./lib/importer/normalizer.js?v=2.0.11",
+          "./lib/importer/zip.js": "./lib/importer/zip.js?v=2.0.11"
         }
       }
     </script>
-    <script src="app.js?v=2.0.10" type="module"></script>
+    <script src="app.js?v=2.0.11" type="module"></script>
   </body>
 </html>
