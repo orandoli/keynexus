@@ -14,7 +14,7 @@ import { RealtimeHub } from "./lib/realtime.js";
 import { PRESET_PROVIDERS, parsePasswordFile, testProviderConnection, fetchProviderModels } from "./lib/importer/index.js";
 import { compareSemver, fetchReleaseCatalog, checkClientUpdate } from "./lib/updater.js";
 
-const WEB_APP_VERSION = "2.0.5";
+const WEB_APP_VERSION = "2.0.6";
 const PREFS_KEY = "pwdsv_web_prefs_v1";
 const PROVIDERS_KEY = "pwdsv_web_ai_providers_v1";
 
@@ -69,7 +69,13 @@ const state = {
   idleTimer: null,
   providers: [],
   activeProviderId: "",
-  editingProviderId: null,
+  activeModelId: "",
+  expandedProviderId: null,
+  addProviderOpen: false,
+  addProviderMode: "catalog",
+  editorDraft: null,
+  savedProviderNotice: "",
+  pickerState: null,
   previewItems: [],
   releaseManifest: null,
 };
@@ -1301,41 +1307,164 @@ $("da-add-form").addEventListener("submit", async (e) => {
 
 /* ----------------------------------------------------- AI 导入与模型提供商 + 设置 */
 
+const PROTOCOL_LABELS = {
+  "openai-compatible": "OpenAI 兼容",
+  anthropic: "Anthropic Messages",
+  gemini: "Google Gemini",
+};
+
+const BASE_URL_HINTS = {
+  "openai-compatible": "https://api.openai.com/v1 或 http://152.32.234.200:8788/",
+  anthropic: "https://api.anthropic.com 或 http://152.32.234.200:8788/",
+  gemini: "https://generativelanguage.googleapis.com/v1beta",
+};
+
+function protocolLabel(protocol) {
+  return PROTOCOL_LABELS[protocol] || protocol || "OpenAI 兼容";
+}
+
+function normalizeModelRow(row) {
+  const id = String(row?.id || "").trim();
+  const name = String(row?.name || "").trim();
+  const rawMod = Array.isArray(row?.inputModalities)
+    ? row.inputModalities
+    : Array.isArray(row?.input)
+      ? row.input
+      : null;
+  const mods = rawMod
+    ? Array.from(new Set(rawMod.map((x) => String(x || "").toLowerCase()).filter((x) => x === "text" || x === "image")))
+    : [];
+  return {
+    id,
+    name: name && name !== id ? name : "",
+    inputModalities: mods.length ? mods : ["text"],
+  };
+}
+
+function normalizeWebProvider(raw) {
+  const modelsMap = new Map();
+  if (Array.isArray(raw?.models)) {
+    for (const m of raw.models) {
+      const nm = normalizeModelRow(m);
+      if (nm.id && !modelsMap.has(nm.id)) modelsMap.set(nm.id, nm);
+    }
+  }
+  if (!modelsMap.size) {
+    const textId = String(raw?.textModel || "").trim();
+    const visionId = String(raw?.visionModel || "").trim();
+    if (textId) {
+      modelsMap.set(textId, {
+        id: textId,
+        name: "",
+        inputModalities: visionId && visionId === textId ? ["text", "image"] : ["text"],
+      });
+    }
+    if (visionId && visionId !== textId) {
+      modelsMap.set(visionId, { id: visionId, name: "", inputModalities: ["text", "image"] });
+    }
+  }
+  const models = Array.from(modelsMap.values());
+  const firstText = models[0]?.id || String(raw?.textModel || "").trim();
+  const firstVision = models.find((m) => m.inputModalities.includes("image"))?.id || String(raw?.visionModel || "").trim();
+  return {
+    id: raw?.id || "web-" + Date.now(),
+    name: String(raw?.name || "自定义网关").trim(),
+    protocol: raw?.protocol || "openai-compatible",
+    baseUrl: String(raw?.baseUrl || "").trim(),
+    exactEndpoint: Boolean(raw?.exactEndpoint),
+    apiKey: String(raw?.apiKey || "").trim(),
+    customHeaders: String(raw?.customHeaders || "").trim(),
+    requiresKey: raw?.requiresKey !== false,
+    models,
+    textModel: firstText,
+    visionModel: firstVision,
+  };
+}
+
 function loadProviders() {
   try {
     const raw = JSON.parse(localStorage.getItem(PROVIDERS_KEY) || "null");
     if (raw?.providers?.length) {
-      state.providers = raw.providers;
-      state.activeProviderId = raw.activeProviderId || raw.providers[0].id;
+      state.providers = raw.providers.map(normalizeWebProvider);
+      state.activeProviderId = raw.activeProviderId || state.providers[0].id;
+      state.activeModelId = raw.activeModelId || "";
       return;
     }
   } catch {}
   state.providers = [
-    { ...PRESET_PROVIDERS[0], id: "web-deepseek", apiKey: "", customHeaders: "" },
-    { ...PRESET_PROVIDERS[1], id: "web-qwen", apiKey: "", customHeaders: "" },
-    { ...PRESET_PROVIDERS[2], id: "web-gemini", apiKey: "", customHeaders: "" },
+    normalizeWebProvider({ ...PRESET_PROVIDERS[0], id: "web-deepseek", apiKey: "", customHeaders: "" }),
+    normalizeWebProvider({ ...PRESET_PROVIDERS[1], id: "web-qwen", apiKey: "", customHeaders: "" }),
+    normalizeWebProvider({ ...PRESET_PROVIDERS[2], id: "web-gemini", apiKey: "", customHeaders: "" }),
   ];
   state.activeProviderId = state.providers[0].id;
+  state.activeModelId = state.providers[0].models[0]?.id || "";
 }
+
 function saveProviders() {
-  localStorage.setItem(PROVIDERS_KEY, JSON.stringify({ activeProviderId: state.activeProviderId, providers: state.providers }));
+  localStorage.setItem(
+    PROVIDERS_KEY,
+    JSON.stringify({
+      activeProviderId: state.activeProviderId,
+      activeModelId: state.activeModelId,
+      providers: state.providers,
+    }),
+  );
+}
+
+function providerHasCredential(p) {
+  if (!p) return false;
+  if (String(p.apiKey || "").trim()) return true;
+  if (p.requiresKey === false) return true;
+  return /localhost|127\.0\.0\.1|:11434/i.test(p.baseUrl || "");
 }
 
 function renderImpProviderSelect() {
   const sel = $("imp-provider-select");
+  if (!sel) return;
   sel.textContent = "";
+  let matchedValue = "";
+  const targetVal = state.activeModelId ? `${state.activeProviderId}::${state.activeModelId}` : "";
+
   for (const p of state.providers) {
-    const o = document.createElement("option");
-    o.value = p.id;
-    o.textContent = `${p.name} · ${p.textModel || p.visionModel}`;
-    sel.appendChild(o);
+    const grp = document.createElement("optgroup");
+    grp.label = `${p.name} · ${protocolLabel(p.protocol)}`;
+    const list = p.models?.length ? p.models : [{ id: p.textModel || p.visionModel || "", name: "", inputModalities: ["text"] }];
+    for (const m of list) {
+      if (!m.id) continue;
+      const val = `${p.id}::${m.id}`;
+      const o = document.createElement("option");
+      o.value = val;
+      const cap = m.inputModalities?.includes("image") ? " · 文本+视觉" : "";
+      o.textContent = `${m.name || m.id}${cap}`;
+      grp.appendChild(o);
+      if (val === targetVal || (!matchedValue && p.id === state.activeProviderId)) {
+        matchedValue = val;
+      }
+    }
+    if (grp.children.length) sel.appendChild(grp);
   }
-  sel.value = state.activeProviderId;
+  if (matchedValue) {
+    sel.value = matchedValue;
+    const sep = matchedValue.indexOf("::");
+    state.activeProviderId = matchedValue.slice(0, sep);
+    state.activeModelId = matchedValue.slice(sep + 2);
+  }
 }
 
 $("btn-open-importer").addEventListener("click", () => { renderImpProviderSelect(); showRightPane("importer"); });
 $("btn-empty-ai").addEventListener("click", () => { renderImpProviderSelect(); showRightPane("importer"); });
-$("imp-provider-select").addEventListener("change", () => { state.activeProviderId = $("imp-provider-select").value; saveProviders(); });
+$("imp-provider-select").addEventListener("change", () => {
+  const raw = $("imp-provider-select").value || "";
+  const sep = raw.indexOf("::");
+  if (sep > 0) {
+    state.activeProviderId = raw.slice(0, sep);
+    state.activeModelId = raw.slice(sep + 2);
+  } else {
+    state.activeProviderId = raw;
+    state.activeModelId = "";
+  }
+  saveProviders();
+});
 $("btn-imp-pick-file").addEventListener("click", () => $("imp-file-input").click());
 $("btn-imp-toggle-text").addEventListener("click", () => { $("imp-raw-text-box").hidden = !$("imp-raw-text-box").hidden; });
 
@@ -1343,9 +1472,16 @@ async function runImport(fileObj) {
   $("imp-error").hidden = true;
   $("imp-status").hidden = false;
   try {
-    const prov = state.providers.find((p) => p.id === state.activeProviderId) || state.providers[0];
+    const baseProv = state.providers.find((p) => p.id === state.activeProviderId) || state.providers[0];
+    const chosenModel = baseProv?.models?.find((m) => m.id === state.activeModelId) || baseProv?.models?.[0];
+    const visionFallback = baseProv?.models?.find((m) => m.inputModalities?.includes("image"))?.id || baseProv?.visionModel || "";
+    const effectiveProv = {
+      ...baseProv,
+      textModel: chosenModel?.id || baseProv.textModel,
+      visionModel: chosenModel?.inputModalities?.includes("image") ? chosenModel.id : visionFallback,
+    };
     const res = await parsePasswordFile(fileObj, {
-      provider: prov,
+      provider: effectiveProv,
       existingVaultItems: state.items,
       forceAi: $("imp-force-ai").checked,
       fetchImpl: makeWebAiFetch(),
@@ -1424,211 +1560,817 @@ $("btn-imp-commit").addEventListener("click", async () => {
   showToast(`已成功导入 ${toCreate.length} 条密码`);
 });
 
-function renderProvidersPane() {
-  const ul = $("prov-list");
-  ul.textContent = "";
-  for (const p of state.providers) {
-    const li = document.createElement("li");
-    if (p.id === state.editingProviderId) li.classList.add("active");
-    li.textContent = (p.id === state.activeProviderId ? "● " : "") + p.name;
-    li.addEventListener("click", () => { state.editingProviderId = p.id; loadProviderForm(p); renderProvidersPane(); });
-    ul.appendChild(li);
-  }
-  const ps = $("prov-preset-select");
-  if (!ps.options.length) {
-    for (const tpl of PRESET_PROVIDERS) {
-      const o = document.createElement("option");
-      o.value = tpl.id;
-      o.textContent = tpl.name;
-      ps.appendChild(o);
-    }
-  }
-}
-function resetWebDetectedModels() {
-  if ($("p-models-datalist")) $("p-models-datalist").textContent = "";
-  if ($("p-model-quick")) $("p-model-quick").textContent = "";
-  if ($("p-model-picker-row")) $("p-model-picker-row").hidden = true;
-}
-
-function loadProviderForm(p) {
-  if (!p) return;
-  $("p-name").value = p.name || "";
-  $("p-protocol").value = p.protocol || "openai-compatible";
-  $("p-baseurl").value = p.baseUrl || "";
-  $("p-exact").checked = Boolean(p.exactEndpoint);
-  $("p-apikey").value = p.apiKey || "";
-  $("p-text-model").value = p.textModel || "";
-  $("p-vision-model").value = p.visionModel || "";
-  $("p-headers").value = p.customHeaders || "";
-  if ($("prov-msg")) $("prov-msg").textContent = "";
-  resetWebDetectedModels();
+function createDraftFromProvider(p) {
+  const norm = normalizeWebProvider(p);
+  return {
+    isNew: false,
+    mode: "custom",
+    id: norm.id,
+    presetId: "",
+    name: norm.name,
+    protocol: norm.protocol,
+    baseUrl: norm.baseUrl,
+    exactEndpoint: norm.exactEndpoint,
+    apiKey: norm.apiKey,
+    customHeaders: norm.customHeaders,
+    requiresKey: norm.requiresKey,
+    models: norm.models.map((m) => ({ ...m, inputModalities: [...m.inputModalities] })),
+    showKey: false,
+    statusText: "",
+    statusType: "",
+    fetchMsg: "",
+    fetchMsgType: "",
+    fetching: false,
+    testing: false,
+  };
 }
 
-let webDetectTimer = null;
-let webDetectSeq = 0;
-async function detectWebProviderModels(silent = false) {
-  if (!silent && webDetectTimer) {
-    clearTimeout(webDetectTimer);
-    webDetectTimer = null;
+function createDraftForAdd(mode = "catalog", presetTpl = PRESET_PROVIDERS[0]) {
+  if (mode === "catalog" && presetTpl) {
+    const norm = normalizeWebProvider({ ...presetTpl, id: "web-" + presetTpl.id + "-" + Date.now(), apiKey: "", customHeaders: "" });
+    return {
+      isNew: true,
+      mode: "catalog",
+      id: norm.id,
+      presetId: presetTpl.id,
+      name: norm.name,
+      protocol: norm.protocol,
+      baseUrl: norm.baseUrl,
+      exactEndpoint: false,
+      apiKey: "",
+      customHeaders: "",
+      requiresKey: presetTpl.requiresKey !== false,
+      models: norm.models.map((m) => ({ ...m, inputModalities: [...m.inputModalities] })),
+      showKey: false,
+      statusText: "",
+      statusType: "",
+      fetchMsg: "",
+      fetchMsgType: "",
+      fetching: false,
+      testing: false,
+    };
   }
-  const msgEl = $("prov-msg");
-  const baseUrl = $("p-baseurl")?.value.trim() || "";
-  if (!baseUrl) {
-    if (!silent && msgEl) {
-      msgEl.textContent = "请先填写 Base URL";
-      msgEl.scrollIntoView?.({ block: "nearest" });
+  return {
+    isNew: true,
+    mode: "custom",
+    id: "web-custom-" + Date.now(),
+    presetId: "",
+    name: "",
+    protocol: "anthropic",
+    baseUrl: "",
+    exactEndpoint: false,
+    apiKey: "",
+    customHeaders: "",
+    requiresKey: true,
+    models: [],
+    showKey: false,
+    statusText: "",
+    statusType: "",
+    fetchMsg: "",
+    fetchMsgType: "",
+    fetching: false,
+    testing: false,
+  };
+}
+
+function closeModelPickerModal() {
+  state.pickerState = null;
+  if ($("model-picker-modal")) $("model-picker-modal").hidden = true;
+}
+
+function renderModelPickerList() {
+  const ps = state.pickerState;
+  const listEl = $("mp-list");
+  if (!ps || !listEl) return;
+  const q = ps.query.trim().toLowerCase();
+  const visible = q
+    ? ps.candidates.filter((c) => c.id.toLowerCase().includes(q) || (c.name && c.name.toLowerCase().includes(q)))
+    : ps.candidates;
+
+  listEl.textContent = "";
+  if (!visible.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.style.padding = "12px";
+    empty.textContent = "没有匹配的模型。";
+    listEl.appendChild(empty);
+  } else {
+    for (const c of visible) {
+      const row = document.createElement("label");
+      row.className = "dsh-picker-item";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = ps.selected.has(c.id);
+      cb.addEventListener("change", () => {
+        if (cb.checked) ps.selected.add(c.id);
+        else ps.selected.delete(c.id);
+        renderModelPickerList();
+      });
+
+      const meta = document.createElement("div");
+      meta.className = "dsh-picker-meta";
+      const idEl = document.createElement("b");
+      idEl.textContent = c.id;
+      meta.appendChild(idEl);
+      if (c.name && c.name !== c.id) {
+        const sub = document.createElement("small");
+        sub.textContent = c.name;
+        meta.appendChild(sub);
+      }
+
+      const badge = document.createElement("span");
+      badge.className = "dsh-picker-badge";
+      badge.textContent = c.inputModalities?.includes("image") ? "文本 · 图片" : "仅文本";
+      row.append(cb, meta, badge);
+      listEl.appendChild(row);
     }
+  }
+  if ($("mp-count")) $("mp-count").textContent = `已选 ${ps.selected.size} 个（共 ${ps.candidates.length} 个）`;
+  if ($("btn-mp-confirm")) $("btn-mp-confirm").disabled = ps.selected.size === 0;
+}
+
+function openModelPickerModal(res) {
+  const draft = state.editorDraft;
+  if (!draft) return;
+  const details = res.modelDetails?.length
+    ? res.modelDetails
+    : (res.models || []).map((id) => ({ id, name: "", inputModalities: ["text"] }));
+  const existingIds = new Set(draft.models.map((m) => m.id.trim()).filter(Boolean));
+  const selected = new Set();
+  if (existingIds.size) {
+    for (const c of details) {
+      if (existingIds.has(c.id)) selected.add(c.id);
+    }
+  } else if (details.length <= 10) {
+    for (const c of details) selected.add(c.id);
+  } else {
+    if (res.suggestedText) selected.add(res.suggestedText);
+    if (res.suggestedVision) selected.add(res.suggestedVision);
+    for (const c of details) {
+      if (selected.size >= 8) break;
+      if (!/(?:embedding|embed|whisper|tts|dall-e|moderation|rerank|bge-)/i.test(c.id)) {
+        selected.add(c.id);
+      }
+    }
+    if (!selected.size && details[0]) selected.add(details[0].id);
+  }
+  state.pickerState = { candidates: details, selected, query: "" };
+  if ($("mp-search")) $("mp-search").value = "";
+  if ($("model-picker-modal")) $("model-picker-modal").hidden = false;
+  renderModelPickerList();
+}
+
+function adoptPickedModels() {
+  const ps = state.pickerState;
+  const draft = state.editorDraft;
+  if (!ps || !draft) return;
+  const candidateById = new Map(ps.candidates.map((c) => [c.id, c]));
+  const keptRows = draft.models.filter((m) => {
+    const id = m.id.trim();
+    if (!candidateById.has(id)) return Boolean(id);
+    return ps.selected.has(id);
+  });
+  const keptIds = new Set(keptRows.map((m) => m.id.trim()));
+  const addedRows = ps.candidates
+    .filter((c) => ps.selected.has(c.id) && !keptIds.has(c.id))
+    .map((c) => ({
+      id: c.id,
+      name: c.name && c.name !== c.id ? c.name : "",
+      inputModalities: c.inputModalities?.length ? [...c.inputModalities] : ["text"],
+    }));
+  draft.models = [...keptRows, ...addedRows];
+  draft.fetchMsg = `✓ 已采用 ${draft.models.length} 个模型`;
+  draft.fetchMsgType = "ok";
+  closeModelPickerModal();
+  renderProvidersPane();
+}
+
+async function fetchModelsIntoDraft(draft) {
+  if (!draft || draft.fetching) return;
+  if (!draft.baseUrl.trim()) {
+    draft.fetchMsg = "请先填写 API 地址，再获取可用模型。";
+    draft.fetchMsgType = "err";
+    renderProvidersPane();
     return;
   }
-  const seq = ++webDetectSeq;
-  const btn = $("btn-prov-detect");
-  if (!silent && msgEl) {
-    msgEl.textContent = "正在检测可用模型…";
-    msgEl.scrollIntoView?.({ block: "nearest" });
-  }
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = "检测中…";
-  }
+  draft.fetching = true;
+  draft.fetchMsg = "正在询问提供商获取模型列表…";
+  draft.fetchMsgType = "";
+  renderProvidersPane();
   try {
     const res = await fetchProviderModels(
       {
-        protocol: $("p-protocol").value,
-        baseUrl,
-        exactEndpoint: Boolean($("p-exact")?.checked),
-        apiKey: $("p-apikey").value.trim(),
-        customHeaders: $("p-headers").value.trim(),
+        protocol: draft.protocol,
+        baseUrl: draft.baseUrl.trim(),
+        exactEndpoint: Boolean(draft.exactEndpoint),
+        apiKey: draft.apiKey.trim(),
+        customHeaders: draft.customHeaders.trim(),
       },
       { fetchImpl: makeWebAiFetch() },
     );
-    if (seq !== webDetectSeq) return;
-    const dl = $("p-models-datalist");
-    const sel = $("p-model-quick");
-    if (dl) {
-      dl.textContent = "";
-      for (const id of res.models) {
-        const opt = document.createElement("option");
-        opt.value = id;
-        dl.appendChild(opt);
-      }
-    }
-    if (sel) {
-      sel.textContent = "";
-      for (const id of res.models) {
-        const opt = document.createElement("option");
-        opt.value = id;
-        opt.textContent = id;
-        sel.appendChild(opt);
-      }
-      if (res.suggestedText) sel.value = res.suggestedText;
-    }
-    if ($("p-model-picker-row")) $("p-model-picker-row").hidden = !res.models.length;
-    if (!$("p-text-model").value.trim() && res.suggestedText) $("p-text-model").value = res.suggestedText;
-    if (!$("p-vision-model").value.trim() && res.suggestedVision) $("p-vision-model").value = res.suggestedVision;
-    if (msgEl) {
-      msgEl.textContent = `✓ 检测到 ${res.models.length} 个模型（已自动填入推荐模型，也可从下方列表切换）`;
-      msgEl.scrollIntoView?.({ block: "nearest" });
-    }
+    draft.fetching = false;
+    draft.fetchMsg = `✓ 获取到 ${res.models.length} 个可用模型`;
+    draft.fetchMsgType = "ok";
+    renderProvidersPane();
+    openModelPickerModal(res);
   } catch (err) {
-    if (seq === webDetectSeq && !silent && msgEl) {
-      msgEl.textContent = "✗ 模型检测失败：" + (err?.message || err);
-      msgEl.scrollIntoView?.({ block: "nearest" });
+    draft.fetching = false;
+    draft.fetchMsg = "✗ " + (err?.message || err);
+    draft.fetchMsgType = "err";
+    renderProvidersPane();
+  }
+}
+
+async function testDraftConnection(draft) {
+  if (!draft || draft.testing) return;
+  const firstModel = draft.models.find((m) => m.id.trim())?.id.trim() || "";
+  if (!draft.baseUrl.trim()) {
+    draft.statusText = "✗ 请先填写 API 地址";
+    draft.statusType = "err";
+    renderProvidersPane();
+    return;
+  }
+  if (!firstModel) {
+    draft.statusText = "✗ 请至少添加或获取一个模型后再测试连通";
+    draft.statusType = "err";
+    renderProvidersPane();
+    return;
+  }
+  draft.testing = true;
+  draft.statusText = `正在测试 ${firstModel} 连通性…`;
+  draft.statusType = "";
+  renderProvidersPane();
+  try {
+    const r = await testProviderConnection(
+      {
+        name: draft.name.trim() || "测试网关",
+        protocol: draft.protocol,
+        baseUrl: draft.baseUrl.trim(),
+        exactEndpoint: Boolean(draft.exactEndpoint),
+        apiKey: draft.apiKey.trim(),
+        textModel: firstModel,
+        customHeaders: draft.customHeaders.trim(),
+      },
+      { fetchImpl: makeWebAiFetch() },
+    );
+    draft.testing = false;
+    draft.statusText = "✓ 连通成功：" + r.sample;
+    draft.statusType = "ok";
+  } catch (err) {
+    draft.testing = false;
+    draft.statusText = "✗ 失败：" + (err?.message || err);
+    draft.statusType = "err";
+  }
+  renderProvidersPane();
+}
+
+function saveDraftProvider(draft) {
+  if (!draft) return;
+  const name = draft.name.trim();
+  const baseUrl = draft.baseUrl.trim();
+  const cleanModels = [];
+  const seenIds = new Set();
+  for (const m of draft.models) {
+    const id = m.id.trim();
+    if (!id) {
+      draft.statusText = "✗ 存在空的模型 ID，请填写或移除空行";
+      draft.statusType = "err";
+      renderProvidersPane();
+      return;
     }
-  } finally {
-    if (btn && seq === webDetectSeq) {
-      btn.disabled = false;
-      btn.textContent = "🔍 检测模型";
+    if (seenIds.has(id)) {
+      draft.statusText = `✗ 模型 ID 重复：${id}`;
+      draft.statusType = "err";
+      renderProvidersPane();
+      return;
+    }
+    seenIds.add(id);
+    cleanModels.push(normalizeModelRow(m));
+  }
+  if (!name) {
+    draft.statusText = "✗ 请填写提供商名称";
+    draft.statusType = "err";
+    renderProvidersPane();
+    return;
+  }
+  if (!/^https?:\/\/\S+/i.test(baseUrl)) {
+    draft.statusText = "✗ 请填写合法的 http:// 或 https:// API 地址";
+    draft.statusType = "err";
+    renderProvidersPane();
+    return;
+  }
+  if (!cleanModels.length) {
+    draft.statusText = "✗ 请至少添加一个模型（可点「🔍 获取可用模型」或「＋ 添加模型」）";
+    draft.statusType = "err";
+    renderProvidersPane();
+    return;
+  }
+
+  const saved = normalizeWebProvider({
+    id: draft.id,
+    name,
+    protocol: draft.protocol,
+    baseUrl,
+    exactEndpoint: draft.exactEndpoint,
+    apiKey: draft.apiKey.trim(),
+    customHeaders: draft.customHeaders.trim(),
+    requiresKey: draft.requiresKey,
+    models: cleanModels,
+  });
+
+  const idx = state.providers.findIndex((p) => p.id === saved.id);
+  if (idx >= 0) state.providers[idx] = saved;
+  else state.providers.push(saved);
+
+  if (draft.isNew || state.activeProviderId === saved.id) {
+    state.activeProviderId = saved.id;
+    state.activeModelId = saved.models[0]?.id || "";
+  }
+  saveProviders();
+  state.expandedProviderId = null;
+  state.addProviderOpen = false;
+  state.editorDraft = null;
+  state.savedProviderNotice = `✓ 已保存 ${saved.name}。`;
+  renderProvidersPane();
+  showToast(`已保存模型提供商：${saved.name}`);
+}
+
+function buildDshEditorCard(draft) {
+  const wrap = document.createElement("div");
+  wrap.className = "dsh-inset-editor";
+
+  if (draft.isNew) {
+    const tabs = document.createElement("div");
+    tabs.className = "dsh-mode-tabs";
+    for (const [mKey, mLbl] of [["catalog", "第三方模型提供商"], ["custom", "自定义模型 API"]]) {
+      const tb = document.createElement("button");
+      tb.type = "button";
+      tb.className = "dsh-mode-tab" + (draft.mode === mKey ? " active" : "");
+      tb.textContent = mLbl;
+      tb.addEventListener("click", () => {
+        if (draft.mode === mKey) return;
+        const tpl = PRESET_PROVIDERS.find((x) => x.id === (draft.presetId || PRESET_PROVIDERS[0].id)) || PRESET_PROVIDERS[0];
+        state.addProviderMode = mKey;
+        state.editorDraft = createDraftForAdd(mKey, tpl);
+        renderProvidersPane();
+      });
+      tabs.appendChild(tb);
+    }
+    const hint = document.createElement("p");
+    hint.className = "dsh-hint";
+    hint.textContent =
+      draft.mode === "catalog"
+        ? "从内置目录选择主流厂商，填入 API 密钥并按需获取或调整模型列表即可使用。"
+        : "连接中转站、自部署服务或其他兼容 OpenAI / Anthropic / Gemini 协议的接口（支持直接填 http:// 地址）。";
+    wrap.append(tabs, hint);
+
+    if (draft.mode === "catalog") {
+      const presetField = document.createElement("div");
+      presetField.className = "field";
+      const lbl = document.createElement("label");
+      lbl.textContent = "选择内置厂商模板";
+      const ps = document.createElement("select");
+      for (const tpl of PRESET_PROVIDERS) {
+        const o = document.createElement("option");
+        o.value = tpl.id;
+        o.textContent = `${tpl.name} · ${protocolLabel(tpl.protocol)}`;
+        ps.appendChild(o);
+      }
+      ps.value = draft.presetId || PRESET_PROVIDERS[0].id;
+      ps.addEventListener("change", () => {
+        const tpl = PRESET_PROVIDERS.find((x) => x.id === ps.value);
+        if (tpl) {
+          state.editorDraft = createDraftForAdd("catalog", tpl);
+          renderProvidersPane();
+        }
+      });
+      presetField.append(lbl, ps);
+      wrap.appendChild(presetField);
+    }
+  }
+
+  const row1 = document.createElement("div");
+  row1.className = "grid-two";
+
+  const nameField = document.createElement("label");
+  nameField.className = "field";
+  const nameSpan = document.createElement("span");
+  nameSpan.textContent = "提供商名称 *";
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.placeholder = "例如：我的自建网关 / OpenAI";
+  nameInput.value = draft.name;
+  nameInput.addEventListener("input", () => { draft.name = nameInput.value; });
+  nameField.append(nameSpan, nameInput);
+
+  const protoField = document.createElement("label");
+  protoField.className = "field";
+  const protoSpan = document.createElement("span");
+  protoSpan.textContent = "接口协议 *";
+  const protoSel = document.createElement("select");
+  for (const [val, txt] of [["anthropic", "Anthropic Messages"], ["openai-compatible", "OpenAI 兼容"], ["gemini", "Google Gemini"]]) {
+    const opt = document.createElement("option");
+    opt.value = val;
+    opt.textContent = txt;
+    protoSel.appendChild(opt);
+  }
+  protoSel.value = draft.protocol;
+  protoSel.addEventListener("change", () => {
+    draft.protocol = protoSel.value;
+    urlInput.placeholder = BASE_URL_HINTS[draft.protocol] || BASE_URL_HINTS["openai-compatible"];
+  });
+  protoField.append(protoSpan, protoSel);
+  row1.append(nameField, protoField);
+
+  const urlField = document.createElement("label");
+  urlField.className = "field";
+  const urlSpan = document.createElement("span");
+  urlSpan.textContent = "API 地址 *";
+  const urlInput = document.createElement("input");
+  urlInput.type = "url";
+  urlInput.spellcheck = false;
+  urlInput.placeholder = BASE_URL_HINTS[draft.protocol] || BASE_URL_HINTS["openai-compatible"];
+  urlInput.value = draft.baseUrl;
+  urlInput.addEventListener("input", () => { draft.baseUrl = urlInput.value; });
+  urlField.append(urlSpan, urlInput);
+
+  const keyField = document.createElement("div");
+  keyField.className = "field";
+  const keyLbl = document.createElement("label");
+  keyLbl.textContent = "API 密钥";
+  const keyWrap = document.createElement("div");
+  keyWrap.className = "dsh-key-wrap";
+  const keyInput = document.createElement("input");
+  keyInput.type = draft.showKey ? "text" : "password";
+  keyInput.autocomplete = "new-password";
+  keyInput.spellcheck = false;
+  keyInput.placeholder = draft.requiresKey === false ? "本地免密服务可留空" : "输入 API 密钥";
+  keyInput.value = draft.apiKey;
+  keyInput.addEventListener("input", () => { draft.apiKey = keyInput.value; });
+  const keyToggle = document.createElement("button");
+  keyToggle.type = "button";
+  keyToggle.className = "ghost small dsh-key-toggle";
+  keyToggle.textContent = draft.showKey ? "隐藏密钥" : "显示密钥";
+  keyToggle.addEventListener("click", () => {
+    draft.showKey = !draft.showKey;
+    renderProvidersPane();
+  });
+  keyWrap.append(keyInput, keyToggle);
+  keyField.append(keyLbl, keyWrap);
+
+  // DSH ModelListEditor
+  const modelsSec = document.createElement("div");
+  modelsSec.className = "dsh-models-section";
+  const modelsHead = document.createElement("div");
+  modelsHead.className = "dsh-models-head";
+  const mhTitle = document.createElement("span");
+  mhTitle.className = "dsh-models-head-title";
+  mhTitle.textContent = `模型目录（${draft.models.length}）`;
+  const mhActions = document.createElement("div");
+  mhActions.className = "dsh-models-actions";
+
+  const fetchBtn = document.createElement("button");
+  fetchBtn.type = "button";
+  fetchBtn.className = "ghost small";
+  fetchBtn.disabled = draft.fetching;
+  fetchBtn.textContent = draft.fetching ? "正在询问提供商…" : "🔍 获取可用模型";
+  fetchBtn.addEventListener("click", () => fetchModelsIntoDraft(draft));
+
+  const addModelBtn = document.createElement("button");
+  addModelBtn.type = "button";
+  addModelBtn.className = "ghost small";
+  addModelBtn.textContent = "＋ 添加模型";
+  addModelBtn.addEventListener("click", () => {
+    draft.models.push({ id: "", name: "", inputModalities: ["text"] });
+    renderProvidersPane();
+  });
+  mhActions.append(fetchBtn, addModelBtn);
+  modelsHead.append(mhTitle, mhActions);
+  modelsSec.appendChild(modelsHead);
+
+  if (draft.fetchMsg) {
+    const fmsg = document.createElement("div");
+    fmsg.className = `dsh-editor-status ${draft.fetchMsgType}`;
+    fmsg.textContent = draft.fetchMsg;
+    modelsSec.appendChild(fmsg);
+  }
+
+  const mList = document.createElement("div");
+  mList.className = "dsh-model-list";
+  if (!draft.models.length) {
+    const emptyHint = document.createElement("p");
+    emptyHint.className = "dsh-hint";
+    emptyHint.textContent = "尚未添加模型：点击右上角「🔍 获取可用模型」自动拉取勾选，或点「＋ 添加模型」手动填写。";
+    mList.appendChild(emptyHint);
+  } else {
+    draft.models.forEach((m, idx) => {
+      const mRow = document.createElement("div");
+      mRow.className = "dsh-model-row";
+      const top = document.createElement("div");
+      top.className = "dsh-model-row-top";
+
+      const inputs = document.createElement("div");
+      inputs.className = "dsh-model-row-inputs";
+      const idIn = document.createElement("input");
+      idIn.type = "text";
+      idIn.placeholder = "模型 ID（如 deepseek-v4.1-flash）";
+      idIn.value = m.id;
+      idIn.addEventListener("input", () => { m.id = idIn.value; });
+      const nmIn = document.createElement("input");
+      nmIn.type = "text";
+      nmIn.placeholder = "显示名称（留空使用模型 ID）";
+      nmIn.value = m.name;
+      nmIn.addEventListener("input", () => { m.name = nmIn.value; });
+      inputs.append(idIn, nmIn);
+
+      const checks = document.createElement("div");
+      checks.className = "dsh-mod-checks";
+      for (const [mod, lblTxt] of [["text", "文本"], ["image", "图片"]]) {
+        const cLbl = document.createElement("label");
+        cLbl.className = "dsh-mod-check";
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = m.inputModalities.includes(mod);
+        cb.disabled = cb.checked && m.inputModalities.length === 1;
+        cb.addEventListener("change", () => {
+          const next = ["text", "image"].filter((x) => (x === mod ? cb.checked : m.inputModalities.includes(x)));
+          if (next.length) m.inputModalities = next;
+          renderProvidersPane();
+        });
+        cLbl.append(cb, document.createTextNode(lblTxt));
+        checks.appendChild(cLbl);
+      }
+
+      const upBtn = document.createElement("button");
+      upBtn.type = "button";
+      upBtn.className = "dsh-icon-btn";
+      upBtn.textContent = "↑";
+      upBtn.title = "上移";
+      upBtn.disabled = idx === 0;
+      upBtn.addEventListener("click", () => {
+        [draft.models[idx - 1], draft.models[idx]] = [draft.models[idx], draft.models[idx - 1]];
+        renderProvidersPane();
+      });
+
+      const dnBtn = document.createElement("button");
+      dnBtn.type = "button";
+      dnBtn.className = "dsh-icon-btn";
+      dnBtn.textContent = "↓";
+      dnBtn.title = "下移";
+      dnBtn.disabled = idx === draft.models.length - 1;
+      dnBtn.addEventListener("click", () => {
+        [draft.models[idx], draft.models[idx + 1]] = [draft.models[idx + 1], draft.models[idx]];
+        renderProvidersPane();
+      });
+
+      const rmBtn = document.createElement("button");
+      rmBtn.type = "button";
+      rmBtn.className = "dsh-icon-btn danger";
+      rmBtn.textContent = "✕";
+      rmBtn.title = "移除模型";
+      rmBtn.addEventListener("click", () => {
+        draft.models.splice(idx, 1);
+        renderProvidersPane();
+      });
+
+      top.append(inputs, checks, upBtn, dnBtn, rmBtn);
+      mRow.appendChild(top);
+      mList.appendChild(mRow);
+    });
+  }
+  modelsSec.appendChild(mList);
+
+  const adv = document.createElement("details");
+  adv.className = "dsh-advanced";
+  if (draft.exactEndpoint || draft.customHeaders) adv.open = true;
+  const advSum = document.createElement("summary");
+  advSum.textContent = "高级选项（精确端点与自定义请求头）";
+  const exactRow = document.createElement("label");
+  exactRow.className = "check-row";
+  const exactCb = document.createElement("input");
+  exactCb.type = "checkbox";
+  exactCb.checked = draft.exactEndpoint;
+  exactCb.addEventListener("change", () => { draft.exactEndpoint = exactCb.checked; });
+  exactRow.append(exactCb, document.createTextNode("完整精确端点（不再自动拼接 /v1/...）"));
+  const hdrField = document.createElement("label");
+  hdrField.className = "field";
+  hdrField.style.marginBottom = "0";
+  const hdrSpan = document.createElement("span");
+  hdrSpan.textContent = "自定义请求头 JSON";
+  const hdrIn = document.createElement("input");
+  hdrIn.type = "text";
+  hdrIn.spellcheck = false;
+  hdrIn.placeholder = '{"X-Tenant":"my-team"}';
+  hdrIn.value = draft.customHeaders;
+  hdrIn.addEventListener("input", () => { draft.customHeaders = hdrIn.value; });
+  hdrField.append(hdrSpan, hdrIn);
+  adv.append(advSum, exactRow, hdrField);
+
+  const footer = document.createElement("div");
+  footer.className = "dsh-editor-footer";
+  const statusEl = document.createElement("div");
+  statusEl.className = `dsh-editor-status ${draft.statusType}`;
+  statusEl.textContent = draft.statusText || "";
+
+  const btns = document.createElement("div");
+  btns.className = "dsh-editor-btns";
+  const testBtn = document.createElement("button");
+  testBtn.type = "button";
+  testBtn.className = "ghost small";
+  testBtn.disabled = draft.testing;
+  testBtn.textContent = draft.testing ? "测试中…" : "⚡ 测试连通";
+  testBtn.addEventListener("click", () => testDraftConnection(draft));
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "ghost";
+  cancelBtn.textContent = "取消";
+  cancelBtn.addEventListener("click", () => {
+    state.expandedProviderId = null;
+    state.addProviderOpen = false;
+    state.editorDraft = null;
+    renderProvidersPane();
+  });
+
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.className = "primary";
+  saveBtn.textContent = "保存";
+  saveBtn.addEventListener("click", () => saveDraftProvider(draft));
+
+  btns.append(testBtn, cancelBtn, saveBtn);
+  footer.append(statusEl, btns);
+
+  wrap.append(row1, urlField, keyField, modelsSec, adv, footer);
+  return wrap;
+}
+
+function renderProvidersPane() {
+  const noticeEl = $("prov-saved-notice");
+  if (noticeEl) {
+    noticeEl.hidden = !state.savedProviderNotice;
+    noticeEl.textContent = state.savedProviderNotice || "";
+  }
+
+  const rowsEl = $("prov-rows");
+  if (!rowsEl) return;
+  rowsEl.textContent = "";
+
+  for (const p of state.providers) {
+    const li = document.createElement("li");
+    const isExpanded = state.expandedProviderId === p.id && state.editorDraft && !state.editorDraft.isNew;
+    const isActive = state.activeProviderId === p.id;
+    li.className = "dsh-row-card" + (isActive ? " active-card" : "");
+
+    const head = document.createElement("div");
+    head.className = "dsh-row-head";
+
+    const identity = document.createElement("div");
+    identity.className = "dsh-row-identity";
+    const dot = document.createElement("span");
+    dot.className = "dsh-dot " + (providerHasCredential(p) ? "configured" : "missing");
+    dot.title = providerHasCredential(p) ? "API 密钥已配置" : "API 密钥缺失";
+    const nm = document.createElement("span");
+    nm.className = "dsh-row-name";
+    nm.textContent = p.name;
+    const protoTag = document.createElement("span");
+    protoTag.className = "dsh-row-tag";
+    protoTag.textContent = protocolLabel(p.protocol);
+    const cntTag = document.createElement("span");
+    cntTag.className = "dsh-row-tag";
+    cntTag.textContent = `${p.models?.length || 0} 个模型`;
+    identity.append(dot, nm, protoTag, cntTag);
+    if (isActive) {
+      const actTag = document.createElement("span");
+      actTag.className = "dsh-row-tag active-tag";
+      actTag.textContent = "当前默认";
+      identity.appendChild(actTag);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "dsh-row-actions";
+    if (!isActive) {
+      const useBtn = document.createElement("button");
+      useBtn.type = "button";
+      useBtn.className = "ghost small";
+      useBtn.textContent = "设为默认";
+      useBtn.addEventListener("click", () => {
+        state.activeProviderId = p.id;
+        state.activeModelId = p.models?.[0]?.id || "";
+        state.savedProviderNotice = "";
+        saveProviders();
+        renderProvidersPane();
+        showToast(`已切换默认提供商：${p.name}`);
+      });
+      actions.appendChild(useBtn);
+    }
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.className = "ghost small";
+    editBtn.textContent = isExpanded ? "收起" : "编辑";
+    editBtn.addEventListener("click", () => {
+      state.savedProviderNotice = "";
+      state.addProviderOpen = false;
+      if (isExpanded) {
+        state.expandedProviderId = null;
+        state.editorDraft = null;
+      } else {
+        state.expandedProviderId = p.id;
+        state.editorDraft = createDraftFromProvider(p);
+      }
+      renderProvidersPane();
+    });
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "ghost small danger";
+    delBtn.textContent = "删除";
+    delBtn.disabled = state.providers.length <= 1;
+    delBtn.addEventListener("click", () => {
+      if (state.providers.length <= 1) return showToast("至少保留一个模型提供商");
+      if (!confirm(`确定删除模型提供商「${p.name}」吗？`)) return;
+      state.providers = state.providers.filter((x) => x.id !== p.id);
+      if (state.activeProviderId === p.id) {
+        state.activeProviderId = state.providers[0].id;
+        state.activeModelId = state.providers[0].models?.[0]?.id || "";
+      }
+      if (state.expandedProviderId === p.id) {
+        state.expandedProviderId = null;
+        state.editorDraft = null;
+      }
+      saveProviders();
+      renderProvidersPane();
+      showToast(`已删除：${p.name}`);
+    });
+    actions.append(editBtn, delBtn);
+
+    head.append(identity, actions);
+    li.appendChild(head);
+    if (isExpanded) li.appendChild(buildDshEditorCard(state.editorDraft));
+    rowsEl.appendChild(li);
+  }
+
+  const addCard = $("prov-add-card");
+  const openAddBtn = $("btn-prov-open-add");
+  if (openAddBtn) openAddBtn.hidden = state.addProviderOpen;
+  if (addCard) {
+    addCard.textContent = "";
+    addCard.hidden = !state.addProviderOpen;
+    if (state.addProviderOpen && state.editorDraft?.isNew) {
+      addCard.appendChild(buildDshEditorCard(state.editorDraft));
     }
   }
 }
 
-function scheduleWebModelDetect() {
-  if (webDetectTimer) clearTimeout(webDetectTimer);
-  const url = $("p-baseurl")?.value.trim() || "";
-  const key = $("p-apikey")?.value.trim() || "";
-  if (!/^https?:\/\/\S+/i.test(url)) return;
-  if (!key && !/localhost|127\.0\.0\.1|:11434/i.test(url)) return;
-  webDetectTimer = setTimeout(() => {
-    webDetectTimer = null;
-    detectWebProviderModels(true);
-  }, 700);
-}
-
-$("btn-prov-detect")?.addEventListener("click", () => detectWebProviderModels(false));
-$("p-baseurl")?.addEventListener("input", scheduleWebModelDetect);
-$("p-apikey")?.addEventListener("input", scheduleWebModelDetect);
-$("p-protocol")?.addEventListener("change", scheduleWebModelDetect);
-$("btn-p-use-text")?.addEventListener("click", () => {
-  const v = $("p-model-quick")?.value;
-  if (v) $("p-text-model").value = v;
-});
-$("btn-p-use-vision")?.addEventListener("click", () => {
-  const v = $("p-model-quick")?.value;
-  if (v) $("p-vision-model").value = v;
+$("btn-prov-open-add")?.addEventListener("click", () => {
+  state.savedProviderNotice = "";
+  state.expandedProviderId = null;
+  state.addProviderOpen = true;
+  state.editorDraft = createDraftForAdd(state.addProviderMode, PRESET_PROVIDERS[0]);
+  renderProvidersPane();
 });
 $("btn-open-providers").addEventListener("click", () => {
-  state.editingProviderId = state.activeProviderId || state.providers[0]?.id;
-  loadProviderForm(state.providers.find((x) => x.id === state.editingProviderId));
+  state.savedProviderNotice = "";
+  state.addProviderOpen = false;
+  state.expandedProviderId = null;
+  state.editorDraft = null;
   renderProvidersPane();
   showRightPane("providers");
 });
 $("btn-imp-manage-providers").addEventListener("click", () => $("btn-open-providers").click());
-$("btn-prov-back").addEventListener("click", () => { renderImpProviderSelect(); showRightPane("importer"); });
-$("btn-prov-new-custom").addEventListener("click", () => {
-  state.editingProviderId = "web-custom-" + Date.now();
-  loadProviderForm({ name: "自定义网关", protocol: "openai-compatible", baseUrl: "", apiKey: "", textModel: "" });
+$("btn-prov-back").addEventListener("click", () => {
+  renderImpProviderSelect();
+  showRightPane("importer");
 });
-$("btn-prov-add-preset").addEventListener("click", () => {
-  const tpl = PRESET_PROVIDERS.find((x) => x.id === $("prov-preset-select").value);
-  if (!tpl) return;
-  state.editingProviderId = "web-" + tpl.id + "-" + Date.now();
-  loadProviderForm({ ...tpl, apiKey: "", customHeaders: "" });
+$("mp-search")?.addEventListener("input", () => {
+  if (!state.pickerState) return;
+  state.pickerState.query = $("mp-search").value;
+  renderModelPickerList();
 });
-$("prov-form").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const cfg = {
-    id: state.editingProviderId || "web-" + Date.now(),
-    name: $("p-name").value.trim(),
-    protocol: $("p-protocol").value,
-    baseUrl: $("p-baseurl").value.trim(),
-    exactEndpoint: $("p-exact").checked,
-    apiKey: $("p-apikey").value.trim(),
-    textModel: $("p-text-model").value.trim(),
-    visionModel: $("p-vision-model").value.trim(),
-    customHeaders: $("p-headers").value.trim(),
-  };
-  const i = state.providers.findIndex((p) => p.id === cfg.id);
-  if (i >= 0) state.providers[i] = cfg;
-  else state.providers.push(cfg);
-  state.activeProviderId = cfg.id;
-  saveProviders();
-  renderProvidersPane();
-  showToast(`已启用模型源：${cfg.name}`);
-});
-$("btn-prov-test").addEventListener("click", async () => {
-  $("prov-msg").textContent = "测试连接中…";
-  try {
-    const r = await testProviderConnection(
-      {
-        name: $("p-name").value, protocol: $("p-protocol").value, baseUrl: $("p-baseurl").value,
-        exactEndpoint: $("p-exact").checked, apiKey: $("p-apikey").value, textModel: $("p-text-model").value, customHeaders: $("p-headers").value,
-      },
-      { fetchImpl: makeWebAiFetch() },
-    );
-    $("prov-msg").textContent = "✓ 连通成功：" + r.sample;
-  } catch (err) {
-    $("prov-msg").textContent = "✗ 失败：" + err.message;
+$("btn-mp-select-all")?.addEventListener("click", () => {
+  const ps = state.pickerState;
+  if (!ps) return;
+  const q = ps.query.trim().toLowerCase();
+  for (const c of ps.candidates) {
+    if (!q || c.id.toLowerCase().includes(q) || (c.name && c.name.toLowerCase().includes(q))) {
+      ps.selected.add(c.id);
+    }
   }
+  renderModelPickerList();
 });
-$("btn-prov-delete").addEventListener("click", () => {
-  if (state.providers.length <= 1) return showToast("至少保留一个模型源");
-  state.providers = state.providers.filter((p) => p.id !== state.editingProviderId);
-  state.activeProviderId = state.providers[0].id;
-  state.editingProviderId = state.activeProviderId;
-  saveProviders();
-  loadProviderForm(state.providers[0]);
-  renderProvidersPane();
+$("btn-mp-clear-all")?.addEventListener("click", () => {
+  const ps = state.pickerState;
+  if (!ps) return;
+  const q = ps.query.trim().toLowerCase();
+  for (const c of ps.candidates) {
+    if (!q || c.id.toLowerCase().includes(q) || (c.name && c.name.toLowerCase().includes(q))) {
+      ps.selected.delete(c.id);
+    }
+  }
+  renderModelPickerList();
 });
+$("btn-mp-confirm")?.addEventListener("click", adoptPickedModels);
+$("btn-mp-cancel")?.addEventListener("click", closeModelPickerModal);
+$("btn-mp-close")?.addEventListener("click", closeModelPickerModal);
 
 $("btn-open-settings").addEventListener("click", () => {
   if ($("st-cur-ver")) $("st-cur-ver").textContent = `v${WEB_APP_VERSION}`;

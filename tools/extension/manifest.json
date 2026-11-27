@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "KeyNexus",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "description": "KeyNexus 零知识加密助手：自动记录网站密码、下次登录主动提示、手动提交管理密码、TOTP 自动填入，与桌面端及手机端四态实时同步。",
   "minimum_chrome_version": "116",
   "icons": {

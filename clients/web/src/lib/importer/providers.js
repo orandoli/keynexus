@@ -472,29 +472,65 @@ function buildDetectHeaders(protocol, authMode, apiKey, extraHeaders) {
   return headers;
 }
 
-function extractModelIds(json, protocol) {
+function normalizeDiscoveredModalities(raw, id) {
+  const arr = Array.isArray(raw?.inputModalities)
+    ? raw.inputModalities
+    : Array.isArray(raw?.input)
+      ? raw.input
+      : null;
+  if (arr) {
+    const cleaned = Array.from(new Set(arr.map((x) => String(x || "").toLowerCase()).filter((x) => x === "text" || x === "image")));
+    if (cleaned.length) return cleaned;
+  }
+  return isVisionModelId(id) ? ["text", "image"] : ["text"];
+}
+
+function extractModelDetails(json, protocol) {
+  const byId = new Map();
+  const pushRow = (rawId, rawObj) => {
+    const id = String(rawId || "").replace(/^models\//, "").trim();
+    if (!id) return;
+    if (byId.has(id)) return;
+    const rawName = typeof rawObj?.displayName === "string"
+      ? rawObj.displayName
+      : typeof rawObj?.name === "string"
+        ? rawObj.name
+        : "";
+    const cleanName = rawName.replace(/^models\//, "").trim();
+    byId.set(id, {
+      id,
+      name: cleanName && cleanName !== id ? cleanName : "",
+      inputModalities: normalizeDiscoveredModalities(rawObj, id),
+    });
+  };
+
   if (Array.isArray(json)) {
-    return json
-      .map((m) => (typeof m === "string" ? m : String(m?.slug || m?.id || m?.name || m?.model || "").replace(/^models\//, "")))
-      .filter(Boolean);
-  }
-  if (Array.isArray(json?.data)) {
-    return json.data
-      .map((m) => (typeof m === "string" ? m : String(m?.id || m?.slug || m?.name || "").replace(/^models\//, "")))
-      .filter(Boolean);
-  }
-  if (Array.isArray(json?.models)) {
-    if (protocol === "gemini") {
-      return json.models
-        .filter((m) => !Array.isArray(m?.supportedGenerationMethods) || m.supportedGenerationMethods.includes("generateContent"))
-        .map((m) => String(m?.name || m?.slug || m?.id || "").replace(/^models\//, ""))
-        .filter(Boolean);
+    for (const m of json) {
+      if (typeof m === "string") pushRow(m, null);
+      else pushRow(m?.slug || m?.id || m?.name || m?.model, m);
     }
-    return json.models
-      .map((m) => String(m?.slug || m?.id || m?.name || m?.model || "").replace(/^models\//, ""))
-      .filter(Boolean);
+  } else if (Array.isArray(json?.data)) {
+    for (const m of json.data) {
+      if (typeof m === "string") pushRow(m, null);
+      else pushRow(m?.id || m?.slug || m?.name, m);
+    }
+  } else if (Array.isArray(json?.models)) {
+    for (const m of json.models) {
+      if (protocol === "gemini" && Array.isArray(m?.supportedGenerationMethods) && !m.supportedGenerationMethods.includes("generateContent")) {
+        continue;
+      }
+      if (typeof m === "string") pushRow(m, null);
+      else if (protocol === "gemini") pushRow(m?.name || m?.slug || m?.id, m);
+      else pushRow(m?.slug || m?.id || m?.name || m?.model, m);
+    }
+  } else if (json?.models && typeof json.models === "object" && !Array.isArray(json.models)) {
+    for (const [key, val] of Object.entries(json.models)) {
+      if (!val || typeof val !== "object" || Array.isArray(val)) continue;
+      pushRow(String(key || "").trim() || val.id || val.slug || val.name, val);
+    }
   }
-  return [];
+
+  return Array.from(byId.values()).sort((a, b) => a.id.localeCompare(b.id));
 }
 
 /**
@@ -558,11 +594,9 @@ export async function fetchProviderModels(provider, opts = {}) {
       return { ok: false, status: res.status, message: `获取模型列表失败 (${res.status})：${cleanErr}` };
     }
 
-    const rawIds = extractModelIds(json, protocol);
-    const models = Array.from(new Set(rawIds.map((s) => String(s).trim()).filter(Boolean))).sort((a, b) =>
-      a.localeCompare(b),
-    );
-    return { ok: true, status: res.status, models };
+    const modelDetails = extractModelDetails(json, protocol);
+    const models = modelDetails.map((m) => m.id);
+    return { ok: true, status: res.status, models, modelDetails };
   }
 
   for (let i = 0; i < endpoints.length; i++) {
@@ -587,8 +621,16 @@ export async function fetchProviderModels(provider, opts = {}) {
     if (outcome.models.length) {
       const suggestedText = outcome.models.find((id) => !isAuxNonChatModelId(id)) || outcome.models[0];
       const suggestedVision =
-        outcome.models.find((id) => !isAuxNonChatModelId(id) && isVisionModelId(id)) || "";
-      return { models: outcome.models, suggestedText, suggestedVision, endpoint };
+        outcome.modelDetails?.find(
+          (m) => !isAuxNonChatModelId(m.id) && (m.inputModalities?.includes("image") || isVisionModelId(m.id)),
+        )?.id || "";
+      return {
+        models: outcome.models,
+        modelDetails: outcome.modelDetails || [],
+        suggestedText,
+        suggestedVision,
+        endpoint,
+      };
     }
     lastErr = new Error("接口连通成功，但未返回任何可用模型");
   }

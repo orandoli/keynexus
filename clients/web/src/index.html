@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>KeyNexus · 零知识网页端</title>
     <link rel="icon" type="image/png" href="favicon.png" />
-    <link rel="stylesheet" href="styles.css?v=2.0.5" />
+    <link rel="stylesheet" href="styles.css?v=2.0.6" />
   </head>
   <body>
     <!-- ==================== 1. 网页端解锁屏 + 四端客户端下载 ==================== -->
@@ -513,73 +513,21 @@
           </div>
         </div>
 
-        <!-- AI 模型提供商配置 -->
+        <!-- AI 模型提供商配置（DeepSeek Harness 风格） -->
         <div id="pane-providers" class="content-card wide-card" hidden>
           <div class="card-head">
             <div>
-              <h2>🤖 AI 模型提供商配置（存本机浏览器 localStorage）</h2>
-              <p class="muted" style="margin: 3px 0 0">支持 OpenAI 兼容网关、Google Gemini、Anthropic Claude 与本地 Ollama</p>
+              <h2>🤖 模型</h2>
+              <p class="muted" style="margin: 3px 0 0">填入各提供商的 API 密钥即可使用其模型；配置仅保存在本机浏览器。</p>
             </div>
             <button type="button" class="ghost small" id="btn-prov-back">← 返回导密</button>
           </div>
-          <div class="providers-split">
-            <div>
-              <div class="picker-bar">
-                <span>已保存模型源</span>
-                <button type="button" class="ghost small" id="btn-prov-new-custom">＋ 自定义</button>
-              </div>
-              <ul id="prov-list" class="vault-list prov-ul"></ul>
-              <div class="field" style="margin-top: 10px">
-                <span>套用主流厂商模板：</span>
-                <div class="inline-row">
-                  <select id="prov-preset-select"></select>
-                  <button type="button" class="ghost small" id="btn-prov-add-preset">套用</button>
-                </div>
-              </div>
-            </div>
-            <form id="prov-form" autocomplete="off">
-              <div class="grid-two">
-                <label class="field"><span>显示名称 *</span><input id="p-name" type="text" required /></label>
-                <label class="field">
-                  <span>接口协议 *</span>
-                  <select id="p-protocol">
-                    <option value="openai-compatible">OpenAI 兼容</option>
-                    <option value="gemini">Google Gemini</option>
-                    <option value="anthropic">Anthropic Claude</option>
-                  </select>
-                </label>
-              </div>
-              <label class="field"><span>Base URL *</span><input id="p-baseurl" type="url" spellcheck="false" required /></label>
-              <label class="check-row"><input id="p-exact" type="checkbox" /><span>完整精确端点</span></label>
-              <div class="field">
-                <label for="p-apikey">API Key</label>
-                <div class="inline-row">
-                  <input id="p-apikey" type="password" spellcheck="false" />
-                  <button type="button" class="ghost small" id="btn-prov-detect" title="根据 Base URL 与 API Key 拉取可用模型">🔍 检测模型</button>
-                </div>
-              </div>
-              <div class="grid-two">
-                <label class="field"><span>文本模型 *</span><input id="p-text-model" type="text" list="p-models-datalist" required /></label>
-                <label class="field"><span>视觉模型</span><input id="p-vision-model" type="text" list="p-models-datalist" /></label>
-              </div>
-              <datalist id="p-models-datalist"></datalist>
-              <div id="p-model-picker-row" class="field" hidden>
-                <span>已检测到的可用模型（选中后点击填入）</span>
-                <div class="inline-row">
-                  <select id="p-model-quick"></select>
-                  <button type="button" class="ghost small" id="btn-p-use-text">设为文本</button>
-                  <button type="button" class="ghost small" id="btn-p-use-vision">设为视觉</button>
-                </div>
-              </div>
-              <label class="field"><span>自定义请求头 JSON</span><input id="p-headers" type="text" spellcheck="false" /></label>
-              <div class="detail-cta">
-                <button type="submit" class="primary">保存并启用</button>
-                <button type="button" class="ghost" id="btn-prov-test">⚡ 测试连通</button>
-                <button type="button" class="ghost danger" id="btn-prov-delete">删除</button>
-              </div>
-              <p id="prov-msg" class="muted" style="margin-top: 8px"></p>
-            </form>
+          <p id="prov-saved-notice" class="dsh-saved-notice" hidden></p>
+          <ul id="prov-rows" class="dsh-rows"></ul>
+          <div class="dsh-add-bar">
+            <button type="button" class="primary" id="btn-prov-open-add">＋ 添加模型提供商</button>
           </div>
+          <div id="prov-add-card" class="dsh-row-card dsh-add-card" hidden></div>
         </div>
 
         <!-- 四端客户端下载与托管中心 -->
@@ -605,7 +553,7 @@
           <div class="card-head">
             <div class="inline-row">
               <h2 style="margin: 0">⚙ 网页端安全与更新设置</h2>
-              <span id="st-cur-ver" class="badge universal">v2.0.5</span>
+              <span id="st-cur-ver" class="badge universal">v2.0.6</span>
             </div>
             <button type="button" class="ghost small" id="btn-st-close">返回</button>
           </div>
@@ -634,27 +582,53 @@
       </main>
     </section>
 
+    <!-- DSH 风格可用模型选择器弹窗 -->
+    <div id="model-picker-modal" class="dsh-modal-backdrop" hidden>
+      <div class="dsh-modal-card" role="dialog" aria-modal="true" aria-labelledby="mp-title">
+        <div class="dsh-modal-head">
+          <div>
+            <h3 id="mp-title">选择模型</h3>
+            <p class="muted" style="margin: 2px 0 0">以下是模型提供商的可用模型，勾选的模型即为模型列表。</p>
+          </div>
+          <button type="button" class="ghost small" id="btn-mp-close">关闭</button>
+        </div>
+        <input id="mp-search" type="search" placeholder="搜索模型 ID 或名称…" autocomplete="off" />
+        <div class="dsh-modal-toolbar">
+          <div class="inline-row">
+            <button type="button" class="ghost small" id="btn-mp-select-all">全选当前</button>
+            <button type="button" class="ghost small" id="btn-mp-clear-all">清空当前</button>
+          </div>
+          <span id="mp-count" class="muted">已选 0 个</span>
+        </div>
+        <div id="mp-list" class="dsh-picker-list"></div>
+        <div class="dsh-modal-footer">
+          <button type="button" class="ghost" id="btn-mp-cancel">取消</button>
+          <button type="button" class="primary" id="btn-mp-confirm">确认采用</button>
+        </div>
+      </div>
+    </div>
+
     <footer id="toast-bar" class="toast-bar" hidden></footer>
     <script type="importmap">
       {
         "imports": {
-          "./lib/api.js": "./lib/api.js?v=2.0.5",
-          "./lib/crypto.js": "./lib/crypto.js?v=2.0.5",
-          "./lib/vault.js": "./lib/vault.js?v=2.0.5",
-          "./lib/totp.js": "./lib/totp.js?v=2.0.5",
-          "./lib/matcher.js": "./lib/matcher.js?v=2.0.5",
-          "./lib/generator.js": "./lib/generator.js?v=2.0.5",
-          "./lib/realtime.js": "./lib/realtime.js?v=2.0.5",
-          "./lib/updater.js": "./lib/updater.js?v=2.0.5",
-          "./lib/argon2.js": "./lib/argon2.js?v=2.0.5",
-          "./lib/importer/index.js": "./lib/importer/index.js?v=2.0.5",
-          "./lib/importer/extractors.js": "./lib/importer/extractors.js?v=2.0.5",
-          "./lib/importer/providers.js": "./lib/importer/providers.js?v=2.0.5",
-          "./lib/importer/normalizer.js": "./lib/importer/normalizer.js?v=2.0.5",
-          "./lib/importer/zip.js": "./lib/importer/zip.js?v=2.0.5"
+          "./lib/api.js": "./lib/api.js?v=2.0.6",
+          "./lib/crypto.js": "./lib/crypto.js?v=2.0.6",
+          "./lib/vault.js": "./lib/vault.js?v=2.0.6",
+          "./lib/totp.js": "./lib/totp.js?v=2.0.6",
+          "./lib/matcher.js": "./lib/matcher.js?v=2.0.6",
+          "./lib/generator.js": "./lib/generator.js?v=2.0.6",
+          "./lib/realtime.js": "./lib/realtime.js?v=2.0.6",
+          "./lib/updater.js": "./lib/updater.js?v=2.0.6",
+          "./lib/argon2.js": "./lib/argon2.js?v=2.0.6",
+          "./lib/importer/index.js": "./lib/importer/index.js?v=2.0.6",
+          "./lib/importer/extractors.js": "./lib/importer/extractors.js?v=2.0.6",
+          "./lib/importer/providers.js": "./lib/importer/providers.js?v=2.0.6",
+          "./lib/importer/normalizer.js": "./lib/importer/normalizer.js?v=2.0.6",
+          "./lib/importer/zip.js": "./lib/importer/zip.js?v=2.0.6"
         }
       }
     </script>
-    <script src="app.js?v=2.0.5" type="module"></script>
+    <script src="app.js?v=2.0.6" type="module"></script>
   </body>
 </html>

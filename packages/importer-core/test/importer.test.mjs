@@ -393,6 +393,32 @@ console.log("[4] 模型源自动检测 (fetchProviderModels)");
     customFetchErr.includes("relay unreachable") && !customFetchErr.includes("浏览器安全策略拦截"),
     customFetchErr,
   );
+
+  // DSH / 网关对象映射格式 { models: { id: { name, inputModalities } } } 解析
+  const mapRes = await fetchProviderModels(
+    { protocol: "anthropic", baseUrl: "http://152.32.234.200:8788/", apiKey: "sk-map" },
+    {
+      fetchImpl: async () => ({
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({
+            models: {
+              "deepseek-v4.1-flash": { name: "DeepSeek-V4.1-Flash", inputModalities: ["text", "image"] },
+              "glm-5.3": { name: "GLM-5.3" },
+            },
+          });
+        },
+      }),
+    },
+  );
+  ok(
+    "支持 DSH models 对象映射格式并保留名称与模态",
+    mapRes.models.length === 2 &&
+      mapRes.suggestedVision === "deepseek-v4.1-flash" &&
+      mapRes.modelDetails.find((m) => m.id === "deepseek-v4.1-flash")?.name === "DeepSeek-V4.1-Flash",
+    mapRes,
+  );
 }
 
 console.log("");
