@@ -11,10 +11,10 @@ import { generateTotp, parseTotp } from "./lib/totp.js";
 import { resolveItemScope, SCOPE_LABELS } from "./lib/matcher.js";
 import { generatePassword, estimateStrength } from "./lib/generator.js";
 import { RealtimeHub } from "./lib/realtime.js";
-import { PRESET_PROVIDERS, parsePasswordFile, testProviderConnection, fetchProviderModels } from "./lib/importer/index.js?v=2.0.4";
+import { PRESET_PROVIDERS, parsePasswordFile, testProviderConnection, fetchProviderModels } from "./lib/importer/index.js";
 import { compareSemver, fetchReleaseCatalog, checkClientUpdate } from "./lib/updater.js";
 
-const WEB_APP_VERSION = "2.0.4";
+const WEB_APP_VERSION = "2.0.5";
 const PREFS_KEY = "pwdsv_web_prefs_v1";
 const PROVIDERS_KEY = "pwdsv_web_ai_providers_v1";
 
