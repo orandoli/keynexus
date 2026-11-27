@@ -519,6 +519,142 @@ console.log("[4] 模型源自动检测 (fetchProviderModels)");
     ds4Res.modelDetails.find((m) => m.id === "deepseek-v4.1-flash")?.inputModalities?.includes("image") === true,
     ds4Res.modelDetails,
   );
+
+  // Anthropic max_tokens 按模型分级：deepseek-v4.1-flash=32768, claude-3-5=8192
+  let dsMaxTokens = 0;
+  let claude35MaxTokens = 0;
+  await callAiProvider(
+    { protocol: "anthropic", baseUrl: "http://152.32.234.200:8788/", apiKey: "sk-wb", textModel: "deepseek-v4.1-flash" },
+    { systemPrompt: "sys", userText: "hi" },
+    {
+      fetchImpl: async (_url, init) => {
+        dsMaxTokens = JSON.parse(init.body).max_tokens;
+        return { ok: true, status: 200, async text() { return 'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"ok"}}\n'; } };
+      },
+    },
+  );
+  await callAiProvider(
+    { protocol: "anthropic", baseUrl: "https://api.anthropic.com", apiKey: "sk-ant", textModel: "claude-3-5-sonnet-latest" },
+    { systemPrompt: "sys", userText: "hi" },
+    {
+      fetchImpl: async (_url, init) => {
+        claude35MaxTokens = JSON.parse(init.body).max_tokens;
+        return { ok: true, status: 200, async text() { return JSON.stringify({ content: [{ type: "text", text: "ok" }] }); } };
+      },
+    },
+  );
+  ok(
+    "Anthropic max_tokens 按推理/新版模型自动放宽",
+    dsMaxTokens === 32768 && claude35MaxTokens === 8192,
+    { dsMaxTokens, claude35MaxTokens },
+  );
+
+  // 403 风控拦截绝不切换 Bearer 重发第二次请求
+  let retry403Count = 0;
+  let err403Msg = "";
+  try {
+    await callAiProvider(
+      { protocol: "anthropic", baseUrl: "http://152.32.234.200:8788/", apiKey: "sk-wb", textModel: "deepseek-v4.1-flash" },
+      { systemPrompt: "sys", userText: "hi" },
+      {
+        fetchImpl: async () => {
+          retry403Count += 1;
+          return {
+            ok: false,
+            status: 403,
+            async text() {
+              return JSON.stringify({ error: { message: 'upstream 403: {"code":11140}' } });
+            },
+          };
+        },
+      },
+    );
+  } catch (e) {
+    err403Msg = String(e.message || e);
+  }
+  ok(
+    "Anthropic HTTP 403 不触发二次换头重试",
+    retry403Count === 1 && err403Msg.includes("403") && err403Msg.includes("11140"),
+    { retry403Count, err403Msg },
+  );
+
+  // 空流诊断：思考耗尽 max_tokens 与 0 output_tokens 提示
+  let thinkingExhaustErr = "";
+  try {
+    await callAiProvider(
+      { protocol: "anthropic", baseUrl: "http://152.32.234.200:8788/", apiKey: "sk-wb", textModel: "deepseek-v4.1-flash" },
+      { systemPrompt: "sys", userText: "hi" },
+      {
+        fetchImpl: async () => ({
+          ok: true,
+          status: 200,
+          async text() {
+            return [
+              'data: {"type":"message_start","message":{"id":"m2"}}',
+              'data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"thinking..."}}',
+              'data: {"type":"message_delta","delta":{"stop_reason":"max_tokens"},"usage":{"output_tokens":4096}}',
+              'data: {"type":"message_stop"}',
+            ].join("\n");
+          },
+        }),
+      },
+    );
+  } catch (e) {
+    thinkingExhaustErr = String(e.message || e);
+  }
+  ok(
+    "思考耗尽输出上限时给出明确诊断提示",
+    thinkingExhaustErr.includes("思考阶段") && thinkingExhaustErr.includes("stop_reason=max_tokens") && thinkingExhaustErr.includes("output_tokens=4096"),
+    thinkingExhaustErr,
+  );
+
+  let zeroTokenErr = "";
+  try {
+    await callAiProvider(
+      { protocol: "anthropic", baseUrl: "http://152.32.234.200:8788/", apiKey: "sk-wb", textModel: "deepseek-v4.1-flash" },
+      { systemPrompt: "sys", userText: "hi" },
+      {
+        fetchImpl: async () => ({
+          ok: true,
+          status: 200,
+          async text() {
+            return [
+              'data: {"type":"message_start","message":{"id":"m3"}}',
+              'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":0}}',
+              'data: {"type":"message_stop"}',
+            ].join("\n");
+          },
+        }),
+      },
+    );
+  } catch (e) {
+    zeroTokenErr = String(e.message || e);
+  }
+  ok(
+    "Anthropic 空文本响应附带 stop_reason 与 output_tokens 诊断",
+    zeroTokenErr.includes("stop_reason=end_turn") && zeroTokenErr.includes("output_tokens=0"),
+    zeroTokenErr,
+  );
+
+  // OpenAI 兼容模式兼容 SSE 流式响应兜底
+  const oaiSseReply = await callAiProvider(
+    { protocol: "openai-compatible", baseUrl: "https://api.example.com/v1", apiKey: "sk-oai", textModel: "deepseek-4.1-flash" },
+    { systemPrompt: "sys", userText: "hi" },
+    {
+      fetchImpl: async () => ({
+        ok: true,
+        status: 200,
+        async text() {
+          return [
+            'data: {"choices":[{"delta":{"content":"{\\"items\\":"}}]}',
+            'data: {"choices":[{"delta":{"content":"[]}"}}]}',
+            "data: [DONE]",
+          ].join("\n");
+        },
+      }),
+    },
+  );
+  ok("OpenAI 兼容接口兼容 SSE 流式返回解析", oaiSseReply === '{"items":[]}', oaiSseReply);
 }
 
 console.log("");

@@ -150,6 +150,13 @@ function buildGeminiEndpoint(baseUrl, model, exactEndpoint = false) {
   return `${baseWithVer}/models/${encodeURIComponent(m)}:generateContent`;
 }
 
+function defaultAnthropicMaxTokens(model) {
+  const m = String(model || "").trim().toLowerCase();
+  if (/^claude-3-(?:opus|sonnet|haiku)\b/.test(m)) return 4096;
+  if (/^claude-3[-.]5\b/.test(m)) return 8192;
+  return 32768;
+}
+
 /**
  * 调用任意已配置的 AI 模型提供商执行提取请求
  * @param {object} provider 提供商配置（预设或自定义）
@@ -229,7 +236,7 @@ export async function callAiProvider(provider, input, opts = {}) {
 
     bodyObj = {
       model,
-      max_tokens: 4096,
+      max_tokens: defaultAnthropicMaxTokens(model),
       stream: true,
       ...(sys ? { system: [{ type: "text", text: sys }] } : {}),
       messages: [{ role: "user", content: hasMedia ? content : promptText }],
@@ -279,7 +286,8 @@ export async function callAiProvider(provider, input, opts = {}) {
     throw new Error(`连接模型提供商失败 (${url})：${e?.message || e}`);
   }
 
-  if ((res.status === 401 || res.status === 403) && apiKey) {
+  // 仅在 401 鉴权失败时尝试切换认证头重试；403 多为上游风控/内容策略拦截，绝不二次重发
+  if (res.status === 401 && apiKey) {
     let retryHeaders = null;
     if (protocol === "anthropic" && headers["x-api-key"] && !headers.Authorization) {
       retryHeaders = { ...headers, Authorization: "Bearer " + apiKey };
@@ -295,11 +303,11 @@ export async function callAiProvider(provider, input, opts = {}) {
           headers: retryHeaders,
           body: payloadStr,
         });
-        if (retryRes.ok || (retryRes.status !== 401 && retryRes.status !== 403)) {
+        if (retryRes.ok || retryRes.status !== 401) {
           res = retryRes;
         }
       } catch {
-        // Ignore retry transport failure and preserve primary 401/403 error handling.
+        // Ignore retry transport failure and preserve primary 401 error handling.
       }
     }
   }
@@ -328,26 +336,56 @@ export async function callAiProvider(provider, input, opts = {}) {
     return text;
   }
 
+  const secrets = apiKey ? [apiKey] : [];
+
   if (protocol === "anthropic") {
-    const text = extractAnthropicText(rawText, json);
-    if (!text) throw new Error("Claude 返回内容为空");
-    return text;
+    const extracted = extractAnthropicText(rawText, json, secrets);
+    if (!extracted.text) {
+      const meta = [
+        extracted.stopReason ? `stop_reason=${extracted.stopReason}` : "",
+        extracted.outputTokens != null ? `output_tokens=${extracted.outputTokens}` : "",
+        extracted.thinkingLen ? `thinking_chars=${extracted.thinkingLen}` : "",
+        extracted.seenEvents?.length ? `events=${extracted.seenEvents.join(",")}` : "",
+      ]
+        .filter(Boolean)
+        .join(", ");
+      if (extracted.stopReason === "max_tokens" || extracted.thinkingLen > 0) {
+        throw new Error(
+          `模型在思考阶段耗尽了输出上限，未生成最终结果${meta ? `（${meta}）` : ""}。请重试，或在「模型设置」切换为非深度思考视觉模型（如 glm-5v-turbo）`,
+        );
+      }
+      const snippet = !meta ? redactSecret(rawText.replace(/\s+/g, " ").trim(), secrets).slice(0, 140) : "";
+      throw new Error(`Claude 返回内容为空${meta ? `（${meta}）` : snippet ? `（响应：${snippet}）` : ""}`);
+    }
+    return extracted.text;
   }
 
-  const text = json?.choices?.[0]?.message?.content || "";
+  const text = extractOpenAiText(rawText, json, secrets);
   if (!text) throw new Error("模型返回内容为空，请检查 Base URL 与模型名称是否匹配");
   return text;
 }
 
-function extractAnthropicText(rawText, json) {
+function extractMessageContent(content) {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => (typeof item === "string" ? item : item?.type === "text" ? item.text || "" : ""))
+      .join("");
+  }
+  return "";
+}
+
+function extractOpenAiText(rawText, json, secrets = []) {
   if (json && typeof json === "object") {
-    if (json.type === "error" || json.error) {
-      const msg = json?.error?.message || (typeof json?.error === "string" && json.error) || json.message || rawText.slice(0, 220);
-      throw new Error(`模型接口报错：${msg}`);
+    if (json.error) {
+      const msg =
+        json?.error?.message ||
+        (typeof json?.error === "string" && json.error) ||
+        json.message ||
+        redactSecret(rawText, secrets);
+      throw new Error(`模型接口报错：${redactSecret(msg, secrets) || rawText.slice(0, 200)}`);
     }
-    if (Array.isArray(json.content)) {
-      return json.content.filter((b) => b?.type === "text").map((b) => b.text).join("");
-    }
+    return extractMessageContent(json?.choices?.[0]?.message?.content);
   }
 
   let out = "";
@@ -363,17 +401,102 @@ function extractAnthropicText(rawText, json) {
       evt = null;
     }
     if (!evt) continue;
-    if (evt.type === "error" || evt.error) {
+    if (evt.error) {
       const msg = evt?.error?.message || (typeof evt?.error === "string" && evt.error) || dataStr.slice(0, 200);
-      throw new Error(`模型接口报错：${msg}`);
+      throw new Error(`模型接口报错：${redactSecret(msg, secrets)}`);
     }
-    if (evt.type === "content_block_start" && evt.content_block?.type === "text" && evt.content_block.text) {
-      out += evt.content_block.text;
-    } else if (evt.type === "content_block_delta" && evt.delta?.type === "text_delta" && typeof evt.delta.text === "string") {
-      out += evt.delta.text;
+    const deltaText = extractMessageContent(evt.choices?.[0]?.delta?.content);
+    if (deltaText) out += deltaText;
+    else {
+      const msgText = extractMessageContent(evt.choices?.[0]?.message?.content);
+      if (msgText) out += msgText;
     }
   }
   return out;
+}
+
+function extractAnthropicText(rawText, json, secrets = []) {
+  if (json && typeof json === "object") {
+    if (json.type === "error" || json.error) {
+      const msg = json?.error?.message || (typeof json?.error === "string" && json.error) || json.message || rawText.slice(0, 220);
+      throw new Error(`模型接口报错：${redactSecret(msg, secrets)}`);
+    }
+    if (Array.isArray(json.content)) {
+      const text = json.content.filter((b) => b?.type === "text").map((b) => b.text).join("");
+      const thinkingLen = json.content
+        .filter((b) => b?.type === "thinking")
+        .reduce((acc, b) => acc + String(b.thinking || b.text || "").length, 0);
+      return {
+        text,
+        thinkingLen,
+        stopReason: json.stop_reason || "",
+        outputTokens: json.usage?.output_tokens ?? null,
+        seenEvents: [],
+      };
+    }
+    if (Array.isArray(json.choices)) {
+      return {
+        text: extractMessageContent(json.choices?.[0]?.message?.content),
+        thinkingLen: 0,
+        stopReason: json.choices?.[0]?.finish_reason || "",
+        outputTokens: json.usage?.completion_tokens ?? null,
+        seenEvents: [],
+      };
+    }
+  }
+
+  let out = "";
+  let thinkingLen = 0;
+  let stopReason = "";
+  let outputTokens = null;
+  const seenEvents = [];
+  for (const line of String(rawText || "").split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("data:")) continue;
+    const dataStr = trimmed.slice(5).trim();
+    if (!dataStr || dataStr === "[DONE]") continue;
+    let evt = null;
+    try {
+      evt = JSON.parse(dataStr);
+    } catch {
+      evt = null;
+    }
+    if (!evt) continue;
+    if (evt.type && !seenEvents.includes(evt.type) && seenEvents.length < 6) {
+      seenEvents.push(evt.type);
+    }
+    if (evt.type === "error" || evt.error) {
+      const msg = evt?.error?.message || (typeof evt?.error === "string" && evt.error) || dataStr.slice(0, 200);
+      throw new Error(`模型接口报错：${redactSecret(msg, secrets)}`);
+    }
+    if (evt.type === "content_block_start") {
+      if (evt.content_block?.type === "text" && evt.content_block.text) {
+        out += evt.content_block.text;
+      } else if (evt.content_block?.type === "thinking" && evt.content_block.thinking) {
+        thinkingLen += String(evt.content_block.thinking).length;
+      }
+    } else if (evt.type === "content_block_delta") {
+      if (evt.delta?.type === "text_delta" && typeof evt.delta.text === "string") {
+        out += evt.delta.text;
+      } else if (evt.delta?.type === "thinking_delta" && typeof evt.delta.thinking === "string") {
+        thinkingLen += evt.delta.thinking.length;
+      } else if (typeof evt.delta?.reasoning_content === "string") {
+        thinkingLen += evt.delta.reasoning_content.length;
+      }
+    } else if (evt.type === "message_delta") {
+      if (evt.delta?.stop_reason) stopReason = String(evt.delta.stop_reason);
+      if (evt.usage?.output_tokens != null) outputTokens = evt.usage.output_tokens;
+    } else if (Array.isArray(evt.choices)) {
+      const choice = evt.choices[0] || {};
+      const deltaText = extractMessageContent(choice.delta?.content);
+      if (deltaText) out += deltaText;
+      if (typeof choice.delta?.reasoning_content === "string") {
+        thinkingLen += choice.delta.reasoning_content.length;
+      }
+      if (choice.finish_reason) stopReason = String(choice.finish_reason);
+    }
+  }
+  return { text: out, thinkingLen, stopReason, outputTokens, seenEvents };
 }
 
 /** 一键测试模型提供商连通性 */
@@ -637,7 +760,10 @@ export async function fetchProviderModels(provider, opts = {}) {
     const endpoint = endpoints[i];
     let outcome = await requestModels(endpoint, primaryAuth);
 
-    if (!outcome.ok && (outcome.status === 401 || outcome.status === 403) && fallbackAuth) {
+    const isRiskOrUpstreamBlock =
+      outcome.status === 403 &&
+      /(?:upstream|11140|风控|restricted|banned|paused|limit|quota|content rejected|policy)/i.test(outcome.message);
+    if (!outcome.ok && (outcome.status === 401 || (outcome.status === 403 && !isRiskOrUpstreamBlock)) && fallbackAuth) {
       const retryOutcome = await requestModels(endpoint, fallbackAuth);
       if (retryOutcome.ok || (retryOutcome.status !== 401 && retryOutcome.status !== 403)) {
         outcome = retryOutcome;
