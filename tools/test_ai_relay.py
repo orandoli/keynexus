@@ -59,6 +59,17 @@ class _MockUpstreamHandler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length") or "0")
         raw = self.rfile.read(length).decode("utf-8") if length else ""
         if self.path == "/v1/messages":
+            if '"stream": true' in raw.lower() or '"stream":true' in raw.lower():
+                sse = (
+                    'event: content_block_delta\n'
+                    'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"OK"}}\n\n'
+                ).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+                self.send_header("Content-Length", str(len(sse)))
+                self.end_headers()
+                self.wfile.write(sse)
+                return
             self._reply(200, {"content": [{"type": "text", "text": '{"ok":true}'}], "echo": raw})
             return
         self._reply(404, {"error": {"message": "not found"}})
@@ -169,6 +180,26 @@ class AiRelayTests(unittest.TestCase):
         self.assertEqual(status, 404)
         self.assertEqual(hdrs.get("X-KeyNexus-Relay"), "1")
         self.assertEqual(body["error"]["message"], "upstream not found")
+
+    def test_sse_stream_forwarding(self) -> None:
+        port = self.upstream_srv.server_port
+        req = urllib.request.Request(
+            f"{self.relay_base}/",
+            data=json.dumps({
+                "url": f"http://152.32.234.200:{port}/v1/messages",
+                "method": "POST",
+                "headers": {"Content-Type": "application/json", "Authorization": "Bearer sk-upstream"},
+                "body": json.dumps({"model": "deepseek-v4.1-flash", "stream": True}),
+            }).encode("utf-8"),
+            method="POST",
+            headers={"X-KeyNexus-Auth": "Bearer valid-jwt", "Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            self.assertEqual(resp.status, 200)
+            self.assertEqual(resp.headers.get("X-KeyNexus-Relay"), "1")
+            self.assertIn("text/event-stream", resp.headers.get("Content-Type", ""))
+            raw = resp.read().decode("utf-8")
+            self.assertIn("text_delta", raw)
 
 
 if __name__ == "__main__":

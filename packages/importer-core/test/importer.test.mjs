@@ -460,6 +460,65 @@ console.log("[4] 模型源自动检测 (fetchProviderModels)");
       visRes.items.length === 1,
     { usedVisionUrl, usedVisionModel, visRes },
   );
+
+  // Anthropic 对齐 DSH pi-ai：stream: true、system 数组块、无 temperature、解析 SSE text_delta
+  let sseReq = null;
+  const sseReply = await callAiProvider(
+    { protocol: "anthropic", baseUrl: "http://152.32.234.200:8788/", apiKey: "sk-wb", textModel: "deepseek-v4.1-flash" },
+    { systemPrompt: "You are helpful.", userText: "你好" },
+    {
+      fetchImpl: async (_url, init) => {
+        sseReq = JSON.parse(init.body);
+        return {
+          ok: true,
+          status: 200,
+          async text() {
+            return [
+              "event: message_start",
+              'data: {"type":"message_start","message":{"id":"m1"}}',
+              "",
+              "event: content_block_start",
+              'data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":"你"}}',
+              "",
+              "event: content_block_delta",
+              'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"好！OK"}}',
+              "",
+              "event: message_stop",
+              'data: {"type":"message_stop"}',
+            ].join("\n");
+          },
+        };
+      },
+    },
+  );
+  ok(
+    "Anthropic 请求格式对齐 DSH pi-ai 并正确解析 SSE 流",
+    sseReq.stream === true &&
+      Array.isArray(sseReq.system) &&
+      sseReq.system[0]?.text === "You are helpful." &&
+      !("temperature" in sseReq) &&
+      sseReply === "你好！OK",
+    { sseReq, sseReply },
+  );
+
+  // deepseek-v4.1-flash 自动识别为支持文本+视觉
+  const ds4Res = await fetchProviderModels(
+    { protocol: "anthropic", baseUrl: "http://152.32.234.200:8788/", apiKey: "sk-wb" },
+    {
+      fetchImpl: async () => ({
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({ data: [{ id: "deepseek-v4.1-flash" }, { id: "glm-5.3" }] });
+        },
+      }),
+    },
+  );
+  ok(
+    "deepseek-v4.1-flash 自动识别为文本+视觉模型",
+    ds4Res.modelDetails.find((m) => m.id === "deepseek-v4.1-flash")?.inputModalities?.includes("image") === true,
+    ds4Res.modelDetails,
+  );
 }
 
 console.log("");

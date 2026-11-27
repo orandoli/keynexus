@@ -206,12 +206,12 @@ export async function callAiProvider(provider, input, opts = {}) {
       },
     };
   } else if (protocol === "anthropic") {
-    if (hasMedia && input.media.mimeType === "application/pdf") {
-      // Claude document block or fallback prompt
-    }
     url = buildAnthropicEndpoint(provider.baseUrl, Boolean(provider.exactEndpoint));
     if (apiKey) headers["x-api-key"] = apiKey;
     headers["anthropic-version"] = headers["anthropic-version"] || "2023-06-01";
+    headers["anthropic-dangerous-direct-browser-access"] =
+      headers["anthropic-dangerous-direct-browser-access"] || "true";
+    headers.Accept = headers.Accept || "text/event-stream, application/json";
 
     const content = [];
     if (hasMedia) {
@@ -224,15 +224,15 @@ export async function callAiProvider(provider, input, opts = {}) {
           data: input.media.base64,
         },
       });
+      content.push({ type: "text", text: promptText });
     }
-    content.push({ type: "text", text: promptText });
 
     bodyObj = {
       model,
       max_tokens: 4096,
-      temperature: 0.1,
-      system: sys,
-      messages: [{ role: "user", content }],
+      stream: true,
+      ...(sys ? { system: [{ type: "text", text: sys }] } : {}),
+      messages: [{ role: "user", content: hasMedia ? content : promptText }],
     };
   } else {
     // 默认：openai-compatible（兼容绝大多数国内外大模型、中转站与本地 Ollama）
@@ -329,10 +329,7 @@ export async function callAiProvider(provider, input, opts = {}) {
   }
 
   if (protocol === "anthropic") {
-    const text = (json?.content || [])
-      .filter((b) => b?.type === "text")
-      .map((b) => b.text)
-      .join("");
+    const text = extractAnthropicText(rawText, json);
     if (!text) throw new Error("Claude 返回内容为空");
     return text;
   }
@@ -342,13 +339,50 @@ export async function callAiProvider(provider, input, opts = {}) {
   return text;
 }
 
+function extractAnthropicText(rawText, json) {
+  if (json && typeof json === "object") {
+    if (json.type === "error" || json.error) {
+      const msg = json?.error?.message || (typeof json?.error === "string" && json.error) || json.message || rawText.slice(0, 220);
+      throw new Error(`模型接口报错：${msg}`);
+    }
+    if (Array.isArray(json.content)) {
+      return json.content.filter((b) => b?.type === "text").map((b) => b.text).join("");
+    }
+  }
+
+  let out = "";
+  for (const line of String(rawText || "").split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("data:")) continue;
+    const dataStr = trimmed.slice(5).trim();
+    if (!dataStr || dataStr === "[DONE]") continue;
+    let evt = null;
+    try {
+      evt = JSON.parse(dataStr);
+    } catch {
+      evt = null;
+    }
+    if (!evt) continue;
+    if (evt.type === "error" || evt.error) {
+      const msg = evt?.error?.message || (typeof evt?.error === "string" && evt.error) || dataStr.slice(0, 200);
+      throw new Error(`模型接口报错：${msg}`);
+    }
+    if (evt.type === "content_block_start" && evt.content_block?.type === "text" && evt.content_block.text) {
+      out += evt.content_block.text;
+    } else if (evt.type === "content_block_delta" && evt.delta?.type === "text_delta" && typeof evt.delta.text === "string") {
+      out += evt.delta.text;
+    }
+  }
+  return out;
+}
+
 /** 一键测试模型提供商连通性 */
 export async function testProviderConnection(provider, opts = {}) {
   const reply = await callAiProvider(
     provider,
     {
-      systemPrompt: '只输出 JSON：{"ok":true}',
-      userText: '请返回 {"ok":true}',
+      systemPrompt: "You are a helpful assistant.",
+      userText: "你好，请简短回复 OK。",
     },
     opts,
   );
@@ -356,7 +390,7 @@ export async function testProviderConnection(provider, opts = {}) {
 }
 
 function isVisionModelId(id) {
-  return /(?:vl|vision|gpt-4o|gpt-4\.1|gpt-5|gemini|claude-[34]|sonnet|opus|haiku|pixtral|llava|glm-[45]v|minicpm-v|(?:^|[-_/])o[134](?:$|[-_/]))/i.test(
+  return /(?:vl|vision|gpt-4o|gpt-4\.1|gpt-5|gemini|claude-[34]|sonnet|opus|haiku|pixtral|llava|glm-[45]v|minicpm-v|deepseek[-_]?v?4|(?:^|[-_/])o[134](?:$|[-_/]))/i.test(
     String(id || ""),
   );
 }
