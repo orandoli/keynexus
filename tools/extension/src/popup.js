@@ -1,7 +1,8 @@
 /**
- * 浏览器插件弹窗交互逻辑 v2.1：
+ * 浏览器插件弹窗交互逻辑 v2.2：
+ * - Obsidian Precision (Dark) / Porcelain Frost (Light) 双主题支持（"system" | "dark" | "light"）
  * - 解锁（支持 TOTP / 邮箱验证码 / 恢复码等 2FA）
- * - 五态分段检索：当前站 / 🌐通用 / 💻电脑 / 📱手机 / 全部，以及全库实时搜索
+ * - 五态分段检索：当前站 / 通用 / 电脑 / 手机 / 全部，以及全库实时搜索
  * - 列表悬停快捷操作：无需进详情即可一键「填入」当前网页或一键「复制」密码
  * - 精致详情页：品牌色圆角头像、星标切换、彩色语义密码、强度评估、3+3 动态码 + SVG 倒计时环
  */
@@ -9,6 +10,52 @@
 import { estimateStrength } from "./lib/generator.js";
 
 const $ = (id) => document.getElementById(id);
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function makeSvg(paths, cls = "ic") {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("class", cls);
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "1.75");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  for (const spec of paths) {
+    const node = document.createElementNS(SVG_NS, spec.tag);
+    for (const [k, v] of Object.entries(spec.attrs)) node.setAttribute(k, v);
+    svg.appendChild(node);
+  }
+  return svg;
+}
+
+const ICONS = {
+  globe: [
+    { tag: "circle", attrs: { cx: "12", cy: "12", r: "10" } },
+    { tag: "path", attrs: { d: "M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" } },
+    { tag: "path", attrs: { d: "M2 12h20" } },
+  ],
+  monitor: [
+    { tag: "rect", attrs: { width: "20", height: "14", x: "2", y: "3", rx: "2" } },
+    { tag: "line", attrs: { x1: "8", x2: "16", y1: "21", y2: "21" } },
+    { tag: "line", attrs: { x1: "12", x2: "12", y1: "17", y2: "21" } },
+  ],
+  smartphone: [
+    { tag: "rect", attrs: { width: "14", height: "20", x: "5", y: "2", rx: "2", ry: "2" } },
+    { tag: "path", attrs: { d: "M12 18h.01" } },
+  ],
+  folder: [
+    { tag: "path", attrs: { d: "M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" } },
+  ],
+  star: [
+    { tag: "polygon", attrs: { points: "12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" } },
+  ],
+  arrowUp: [
+    { tag: "path", attrs: { d: "m5 12 7-7 7 7" } },
+    { tag: "path", attrs: { d: "M12 19V5" } },
+  ],
+};
 
 const el = {
   lockedView: $("locked-view"),
@@ -20,6 +67,7 @@ const el = {
   btnNew: $("btn-new"),
   btnSync: $("btn-sync"),
   btnLock: $("btn-lock"),
+  btnTheme: $("btn-theme"),
   btnSettings: $("btn-settings"),
 
   server: $("server"),
@@ -82,6 +130,7 @@ const el = {
 };
 
 const state = {
+  theme: "dark",
   scope: "site",
   items: [],
   folders: [],
@@ -93,6 +142,36 @@ const state = {
   revealed: false,
   totpTimer: null,
 };
+
+/* ----------------------------------------------------- 双主题管理 */
+
+const systemThemeMq = window.matchMedia?.("(prefers-color-scheme: dark)") || null;
+
+function resolveTheme(mode) {
+  if (mode === "light") return "light";
+  if (mode === "system") return systemThemeMq?.matches === false ? "light" : "dark";
+  return "dark";
+}
+
+function updateThemeButton(resolved) {
+  if (!el.btnTheme) return;
+  const sun = el.btnTheme.querySelector(".ic-sun");
+  const moon = el.btnTheme.querySelector(".ic-moon");
+  sun?.toggleAttribute("hidden", resolved === "light");
+  moon?.toggleAttribute("hidden", resolved !== "light");
+  el.btnTheme.title = resolved === "dark" ? "切换到陶瓷浅色模式" : "切换到黑曜石深色模式";
+}
+
+function applyTheme(mode) {
+  state.theme = mode === "light" || mode === "system" ? mode : "dark";
+  const resolved = resolveTheme(state.theme);
+  document.documentElement.dataset.theme = resolved;
+  updateThemeButton(resolved);
+}
+
+systemThemeMq?.addEventListener?.("change", () => {
+  if (state.theme === "system") applyTheme("system");
+});
 
 /* ----------------------------------------------------- 视觉排版与密码语义工具 */
 
@@ -336,7 +415,11 @@ function checkPopupUpdateSilent() {
     .then((res) => {
       if (!el.btnPopupUpdate) return;
       if (res?.hasUpdate && res.latestVersion) {
-        el.btnPopupUpdate.textContent = `⬆ 新版 v${res.latestVersion}`;
+        el.btnPopupUpdate.textContent = "";
+        el.btnPopupUpdate.append(
+          makeSvg(ICONS.arrowUp),
+          document.createTextNode(`新版 v${res.latestVersion}`),
+        );
         el.btnPopupUpdate.hidden = false;
       } else {
         el.btnPopupUpdate.hidden = true;
@@ -347,6 +430,7 @@ function checkPopupUpdateSilent() {
 
 async function refreshStatus() {
   const st = await send({ type: "status" });
+  if (st.theme) applyTheme(st.theme);
   if (st.locked) {
     showView("locked");
     el.server.value = st.serverUrl || "";
@@ -382,7 +466,7 @@ async function quickFillById(id) {
       password: res.password,
       totp: res.totp || "",
     });
-    status(`✓ 已填入「${res.name || "账号"}」到当前页面`);
+    status(`已填入「${res.name || "账号"}」到当前页面`);
   } catch {
     status("当前标签页不支持网页表单注入（可直接复制密码）");
   }
@@ -392,7 +476,7 @@ async function quickCopyById(id, field = "password", label = "密码") {
   const res = await send({ type: "secret", id, field });
   if (!res.value) return;
   await navigator.clipboard.writeText(res.value);
-  status(`✓ 已安全复制${label}（30 秒后自动清空）`);
+  status(`已安全复制${label}（30 秒后自动清空）`);
   setTimeout(() => {
     navigator.clipboard.writeText("").catch(() => {});
   }, 30000);
@@ -416,7 +500,13 @@ function renderItems(items) {
 
     const name = document.createElement("div");
     name.className = "name";
-    name.textContent = (item.favorite ? "★ " : "") + (item.name || "(未命名)");
+    if (item.favorite) {
+      name.appendChild(makeSvg(ICONS.star, "ic ic-star-mini"));
+    }
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "name-text";
+    nameSpan.textContent = item.name || "(未命名)";
+    name.appendChild(nameSpan);
 
     const user = document.createElement("div");
     user.className = "user";
@@ -490,7 +580,10 @@ async function loadItems() {
   const host = safeHost(state.currentTabUrl);
   if (host && effectiveScope === "site" && !query) {
     el.siteHint.hidden = false;
-    el.siteHint.textContent = `🌐 当前站点 ${host} · 匹配到 ${res.siteCount} 条可用账号`;
+    el.siteHint.textContent = "";
+    const txt = document.createElement("span");
+    txt.textContent = `当前站点 ${host} · 匹配到 ${res.siteCount} 条可用账号`;
+    el.siteHint.append(makeSvg(ICONS.globe), txt);
     el.emptyText.textContent = `尚未保存 ${host} 的登录密码`;
   } else {
     el.siteHint.hidden = true;
@@ -512,9 +605,9 @@ for (const btn of allTabButtons()) {
 
 function uriPlatformIcon(uri) {
   const u = String(uri || "");
-  if (/^app:\/\//i.test(u)) return "💻";
-  if (/^androidapp:\/\//i.test(u)) return "📱";
-  return "🌐";
+  if (/^app:\/\//i.test(u)) return makeSvg(ICONS.monitor);
+  if (/^androidapp:\/\//i.test(u)) return makeSvg(ICONS.smartphone);
+  return makeSvg(ICONS.globe);
 }
 
 async function openDetail(id) {
@@ -527,8 +620,8 @@ async function openDetail(id) {
   applyAvatar(el.detailAvatar, item.name || item.username, item.id);
   el.detailName.textContent = item.name || "(未命名)";
   if (el.detailFav) {
-    el.detailFav.textContent = item.favorite ? "★" : "☆";
-    el.detailFav.style.opacity = item.favorite ? "1" : "0.45";
+    el.detailFav.classList.toggle("is-fav", Boolean(item.favorite));
+    el.detailFav.setAttribute("aria-pressed", item.favorite ? "true" : "false");
   }
 
   el.detailBadges.textContent = "";
@@ -542,7 +635,9 @@ async function openDetail(id) {
   if (item.folderName) {
     const f = document.createElement("span");
     f.className = "tag";
-    f.textContent = "📁 " + item.folderName;
+    const fname = document.createElement("span");
+    fname.textContent = item.folderName;
+    f.append(makeSvg(ICONS.folder), fname);
     el.detailBadges.appendChild(f);
   }
   if (item.passwordHistoryCount > 0) {
@@ -561,11 +656,9 @@ async function openDetail(id) {
   for (const u of item.uris || []) {
     const chip = document.createElement("div");
     chip.className = "uri-chip";
-    const ic = document.createElement("span");
-    ic.textContent = uriPlatformIcon(u.uri);
     const sp = document.createElement("span");
     sp.textContent = u.uri;
-    chip.append(ic, sp);
+    chip.append(uriPlatformIcon(u.uri), sp);
     el.detailUris.appendChild(chip);
   }
 
@@ -596,7 +689,7 @@ el.detailFav?.addEventListener("click", async () => {
       notes: item.notes || "",
     });
     await openDetail(item.id);
-    status(nextFav ? "★ 已设为星标收藏" : "已取消星标收藏");
+    status(nextFav ? "已设为星标收藏" : "已取消星标收藏");
   } catch (e) {
     status("更新收藏失败：" + e.message);
   }
@@ -628,7 +721,7 @@ function startTotpLoop() {
         const total = res.period || 30;
         const offset = circumference * (1 - res.remaining / total);
         el.detailTotpCircle.setAttribute("stroke-dashoffset", offset.toFixed(2));
-        el.detailTotpCircle.style.stroke = res.remaining <= 5 ? "#f59e0b" : "#34d399";
+        el.detailTotpCircle.classList.toggle("is-expiring", res.remaining <= 5);
       }
     } catch {
       el.detailTotp.textContent = "密钥格式有误";
@@ -802,6 +895,7 @@ async function generatePasswordInPopup() {
 /* ------------------------------------------------------------------ 入口 */
 
 async function init() {
+  applyTheme("dark");
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   state.currentTabId = tab?.id ?? null;
   state.currentTabUrl = tab?.url || "";
@@ -814,6 +908,7 @@ async function init() {
 
   try {
     const st = await send({ type: "status" });
+    applyTheme(st.theme || "dark");
     if (st.locked) {
       showView("locked");
       el.server.value = st.serverUrl || "";
@@ -830,6 +925,17 @@ async function init() {
     showUnlockError("后台服务未响应：" + e.message);
   }
 }
+
+el.btnTheme?.addEventListener("click", async () => {
+  const currentResolved = resolveTheme(state.theme);
+  const nextTheme = currentResolved === "dark" ? "light" : "dark";
+  applyTheme(nextTheme);
+  try {
+    await send({ type: "settings", patch: { theme: nextTheme } });
+  } catch {
+    // 主题已在本地即时预览，后台落盘失败时静默忽略
+  }
+});
 
 el.unlockForm.addEventListener("submit", doUnlock);
 el.search.addEventListener("input", loadItems);
@@ -856,7 +962,7 @@ $("btn-gen-copy").addEventListener("click", async () => {
   const value = $("gen-value").textContent;
   if (value) {
     await navigator.clipboard.writeText(value);
-    status("✓ 随机强密码已复制");
+    status("随机强密码已复制");
   }
 });
 document.querySelectorAll("[data-copy]").forEach((btn) => {

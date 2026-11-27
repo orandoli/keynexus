@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -8,11 +8,46 @@
   </head>
   <body>
     <main>
-      <h1>KeyNexus · 浏览器助手</h1>
-      <p class="sub">连接你自己的零知识加密服务器，密码永不落第三方云，并与桌面端、手机端四态实时协同。</p>
+      <header class="page-head">
+        <div class="brand-mark" aria-hidden="true">
+          <img src="icons/128.png" alt="KeyNexus" class="brand-img" />
+        </div>
+        <div class="page-head-copy">
+          <h1>KeyNexus · 浏览器助手</h1>
+          <p class="sub">连接你自己的零知识加密服务器，密码永不落第三方云，并与桌面端、手机端四态实时协同。</p>
+        </div>
+      </header>
 
       <section class="card">
-        <h2>服务器</h2>
+        <h2>
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" />
+            <path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" />
+            <path d="M2 12h2" /><path d="M20 12h2" />
+            <path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" />
+          </svg>
+          <span>外观与常规</span>
+        </h2>
+        <label class="field">
+          <span>界面主题</span>
+          <select id="theme">
+            <option value="system">跟随系统</option>
+            <option value="dark">黑曜石深色</option>
+            <option value="light">陶瓷浅色</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="card">
+        <h2>
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />
+            <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />
+            <line x1="6" x2="6.01" y1="6" y2="6" />
+            <line x1="6" x2="6.01" y1="18" y2="18" />
+          </svg>
+          <span>服务器</span>
+        </h2>
         <label class="field">
           <span>地址</span>
           <input id="server" type="url" placeholder="https://vw.example.com" spellcheck="false" />
@@ -21,25 +56,31 @@
           <button id="btn-ping" class="ghost">测试连接</button>
           <span id="ping-result" class="muted"></span>
         </div>
-        <label class="field">
+        <label class="field" style="margin-top: 13px">
           <span>常用邮箱（仅预填登录框，不会存密码）</span>
           <input id="email" type="email" placeholder="you@example.com" spellcheck="false" />
         </label>
       </section>
 
       <section class="card">
-        <h2>提示与记录行为</h2>
+        <h2>
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+          <span>提示与记录行为</span>
+        </h2>
         <label class="check">
           <input id="persistSession" type="checkbox" />
           <span>保持登录状态（重启浏览器免重新登录，仅手动锁定时清除）</span>
         </label>
-        <label class="check">
+        <label class="check check-number">
           <input id="lockMinutes" type="number" min="0" max="1440" step="1" />
           <span>自动锁定（分钟，默认 0 = 不自动锁）</span>
         </label>
         <label class="check">
           <input id="loginToast" type="checkbox" />
-          <span>打开登录页时在右上角提示已存账号（输入框旁始终有 🔑 图标）</span>
+          <span>打开登录页时在右上角提示已存账号（输入框旁始终显示快捷填充图标）</span>
         </label>
         <label class="check">
           <input id="autofillOnLoad" type="checkbox" />
@@ -64,13 +105,24 @@
       </section>
 
       <section class="card">
-        <h2>设为「不提示保存」的网站</h2>
+        <h2>
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" /><path d="m4.9 4.9 14.2 14.2" />
+          </svg>
+          <span>设为「不提示保存」的网站</span>
+        </h2>
         <p class="muted small" id="never-save-empty">当前没有屏蔽任何网站。</p>
         <div id="never-save-list" class="row" style="flex-wrap: wrap"></div>
       </section>
 
       <section class="card">
-        <h2>安全</h2>
+        <h2>
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+            <path d="m9 12 2 2 4-4" />
+          </svg>
+          <span>安全</span>
+        </h2>
         <p class="muted small">
           主密码永不落盘；开启「保持登录状态」时会在本机
           <code>chrome.storage.local</code> 保存解锁后的对称密钥与条目缓存以便重启浏览器免登录，关闭该开关则仅存于内存会话。点击手动锁定会立即清除两处密钥。
@@ -82,7 +134,14 @@
       </section>
 
       <section class="card">
-        <h2>🔄 插件版本与一键更新 <span id="ext-cur-ver" class="muted" style="text-transform: none"></span></h2>
+        <h2>
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" />
+            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" />
+          </svg>
+          <span>插件版本与一键更新</span>
+          <span id="ext-cur-ver" class="muted" style="text-transform: none; font-weight: 500"></span>
+        </h2>
         <p class="muted small">
           受浏览器 MV3 安全策略限制，自托管扩展需下载新版压缩包覆盖原目录并在扩展管理页点击刷新。
         </p>
@@ -92,7 +151,12 @@
         </label>
         <div class="row" style="flex-wrap: wrap">
           <button id="btn-check-update" type="button">检查更新</button>
-          <button id="btn-download-update" type="button" class="primary" hidden>⬇ 一键下载新版扩展包</button>
+          <button id="btn-download-update" type="button" class="primary" hidden>
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" />
+            </svg>
+            <span>一键下载新版扩展包</span>
+          </button>
           <button id="btn-open-extensions" type="button">打开扩展管理页</button>
           <span id="update-status" class="muted"></span>
         </div>

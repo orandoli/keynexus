@@ -1,16 +1,24 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>KeyNexus · 零知识网页端</title>
     <link rel="icon" type="image/png" href="favicon.png" />
-    <link rel="stylesheet" href="styles.css?v=2.0.11" />
+    <link rel="stylesheet" href="styles.css?v=2.1.0" />
   </head>
   <body>
     <!-- ==================== 1. 网页端解锁屏 + 四端客户端下载 ==================== -->
     <section id="auth-screen" class="auth-screen">
       <div class="ambient-glow"></div>
+      <button type="button" class="theme-float-btn" id="btn-auth-theme" title="切换深浅主题" aria-label="切换深浅主题">
+        <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+        </svg>
+        <span id="auth-theme-label">浅色</span>
+      </button>
+
       <div class="auth-stack">
         <div class="auth-card">
           <div class="brand-head">
@@ -24,8 +32,20 @@
           </div>
 
           <div class="auth-mode-tabs" role="tablist">
-            <button type="button" class="auth-mode-tab active" id="tab-auth-login" role="tab" aria-selected="true">🔓 解锁登录</button>
-            <button type="button" class="auth-mode-tab" id="tab-auth-register" role="tab" aria-selected="false">✨ 注册新账号</button>
+            <button type="button" class="auth-mode-tab active" id="tab-auth-login" role="tab" aria-selected="true">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 9.9-1" />
+              </svg>
+              <span>解锁登录</span>
+            </button>
+            <button type="button" class="auth-mode-tab" id="tab-auth-register" role="tab" aria-selected="false">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z" />
+                <path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z" />
+              </svg>
+              <span>注册新账号</span>
+            </button>
           </div>
 
           <form id="unlock-form" autocomplete="off">
@@ -101,7 +121,13 @@
               <span>主密码提示（选填）</span>
               <input id="reg-hint" type="text" placeholder="仅提示给自己，切勿写明文密码" />
             </label>
-            <p class="reg-note">🔒 零知识安全承诺：主密码仅在您的浏览器内通过 PBKDF2-SHA256 (600,000 次) 与 RSA-2048 派生并加密个人密钥，原始主密码永不离开本机。</p>
+            <p class="reg-note">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <path d="M9 12l2 2 4-4" />
+              </svg>
+              <span>零知识安全承诺：主密码仅在您的浏览器内通过 PBKDF2-SHA256 (600,000 次) 与 RSA-2048 派生并加密个人密钥，原始主密码永不离开本机。</span>
+            </p>
             <button type="submit" class="primary full" id="btn-register">本地生成密钥并注册</button>
             <p class="error" id="reg-error" hidden></p>
             <p class="reg-ok" id="reg-ok" hidden></p>
@@ -110,7 +136,14 @@
 
         <div class="auth-downloads-card">
           <div class="auth-dl-head">
-            <span>📦 下载配套客户端（直连本服务器 `/client-releases/`）</span>
+            <span class="head-lbl">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                <line x1="12" y1="22.08" x2="12" y2="12" />
+              </svg>
+              <span>下载配套客户端（直连本服务器 <code>/client-releases/</code>）</span>
+            </span>
             <span id="auth-dl-ver" class="muted">加载清单中…</span>
           </div>
           <div id="auth-downloads-grid" class="auth-dl-grid"></div>
@@ -130,21 +163,38 @@
             <b>KeyNexus</b>
             <span id="sidebar-user-email">网页端已加密连接</span>
           </div>
-          <span class="watch-pill">🌐 Web</span>
+          <button type="button" class="icon-btn" id="btn-sidebar-theme" title="切换深浅主题" aria-label="切换深浅主题">
+            <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+            </svg>
+          </button>
         </div>
 
         <div class="sidebar-cta-group">
           <button type="button" class="primary full icon-cta" id="btn-new-item">
-            <span>＋ 提交新密码</span>
+            <span class="nav-lbl">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>提交新密码</span>
+            </span>
             <kbd>Ctrl+N</kbd>
           </button>
           <button type="button" class="ai-cta full" id="btn-open-importer">
-            <span>✨ 文件 / 截图 AI 导密</span>
+            <span class="nav-lbl">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z" />
+                <path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z" />
+              </svg>
+              <span>文件 / 截图 AI 导密</span>
+            </span>
           </button>
         </div>
 
         <div class="sidebar-section-title">按适用终端筛选</div>
-        <nav class="nav-group">
+        <nav class="nav-group nav-filters">
           <button type="button" class="nav-item active" data-filter="all">
             <span class="nav-lbl"><i class="dot-ic all"></i>全部密码</span><em id="cnt-all">0</em>
           </button>
@@ -171,13 +221,46 @@
         <div class="sidebar-section-title">文件夹分类</div>
         <nav class="nav-group folders-nav" id="folders-nav"></nav>
 
-        <button type="button" class="dl-nav-btn" id="btn-open-downloads">📦 客户端下载中心（电脑/手机/插件）</button>
+        <button type="button" class="dl-nav-btn" id="btn-open-downloads">
+          <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+            <line x1="12" y1="22.08" x2="12" y2="12" />
+          </svg>
+          <span>客户端下载中心（电脑/手机/插件）</span>
+        </button>
 
         <div class="sidebar-footer">
-          <button type="button" class="tool-btn" id="btn-open-providers" title="配置 AI 模型源">🤖 模型源</button>
-          <button type="button" class="tool-btn" id="btn-sync-now" title="立即同步">⟳ 同步</button>
-          <button type="button" class="tool-btn" id="btn-open-settings" title="安全设置">⚙ 设置</button>
-          <button type="button" class="tool-btn lock" id="btn-lock-vault" title="立即锁定">🔒 锁定</button>
+          <button type="button" class="tool-btn" id="btn-open-providers" title="配置 AI 模型源">
+            <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="4" y="4" width="16" height="16" rx="2" />
+              <rect x="9" y="9" width="6" height="6" />
+              <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3" />
+            </svg>
+            <span>模型源</span>
+          </button>
+          <button type="button" class="tool-btn" id="btn-sync-now" title="立即同步">
+            <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+            <span>同步</span>
+          </button>
+          <button type="button" class="tool-btn" id="btn-open-settings" title="安全设置">
+            <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+            <span>设置</span>
+          </button>
+          <button type="button" class="tool-btn lock" id="btn-lock-vault" title="立即锁定">
+            <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            <span>锁定</span>
+          </button>
         </div>
       </aside>
 
@@ -185,26 +268,43 @@
       <section class="list-pane">
         <div class="list-header">
           <div class="search-box">
-            <svg class="search-ic" viewBox="0 0 20 20" width="14" height="14">
-              <path d="M8.5 3a5.5 5.5 0 104.38 8.82l3.65 3.65a.75.75 0 101.06-1.06l-3.65-3.65A5.5 5.5 0 008.5 3zm-4 5.5a4 4 0 118 0 4 4 0 01-8 0z" fill="currentColor" />
+            <svg class="search-ic ic sm" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
             <input id="vault-search" type="search" placeholder="搜索名称、账号、域名、包名…" spellcheck="false" />
             <kbd>Ctrl+F</kbd>
           </div>
           <div class="list-submeta">
-            <span id="list-filter-title">全部密码</span>
-            <span id="list-result-count" class="muted">0 项</span>
+            <span id="list-filter-title" class="filter-title-row">全部密码</span>
+            <span id="list-result-count" class="muted tabular-nums">0 项</span>
           </div>
         </div>
 
         <ul id="vault-list" class="vault-list"></ul>
 
         <div id="vault-empty" class="empty-pane" hidden>
-          <div class="empty-icon">🔐</div>
+          <div class="empty-icon">
+            <svg class="ic xl" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+          </div>
           <p>当前分类下还没有密码记录</p>
           <div class="inline-row" style="justify-content: center">
-            <button type="button" class="ghost small" id="btn-empty-create">＋ 手动录入</button>
-            <button type="button" class="ghost small" id="btn-empty-ai">✨ 文件 AI 导入</button>
+            <button type="button" class="ghost small" id="btn-empty-create">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>手动录入</span>
+            </button>
+            <button type="button" class="ghost small" id="btn-empty-ai">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z" />
+              </svg>
+              <span>文件 AI 导入</span>
+            </button>
           </div>
         </div>
       </section>
@@ -220,22 +320,50 @@
 
           <div class="bento-stats">
             <div class="stat-tile" data-jump="universal">
-              <span class="st-tag uni">🌐 三端通用</span>
+              <span class="st-tag uni">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="2" y1="12" x2="22" y2="12" />
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                </svg>
+                <span>三端通用</span>
+              </span>
               <strong id="dash-cnt-uni">0</strong>
               <small>网页 · 电脑 · 手机同号互通</small>
             </div>
             <div class="stat-tile" data-jump="web">
-              <span class="st-tag web">🕸 网页端专属</span>
+              <span class="st-tag web">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="4" width="18" height="16" rx="2" />
+                  <line x1="3" y1="9" x2="21" y2="9" />
+                  <circle cx="7" cy="6.5" r=".5" />
+                  <circle cx="10" cy="6.5" r=".5" />
+                </svg>
+                <span>网页端专属</span>
+              </span>
               <strong id="dash-cnt-web">0</strong>
               <small>配合插件自动填充抓密</small>
             </div>
             <div class="stat-tile" data-jump="desktop">
-              <span class="st-tag desk">💻 电脑端专属</span>
+              <span class="st-tag desk">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="2" y="3" width="20" height="14" rx="2" />
+                  <line x1="8" y1="21" x2="16" y2="21" />
+                  <line x1="12" y1="17" x2="12" y2="21" />
+                </svg>
+                <span>电脑端专属</span>
+              </span>
               <strong id="dash-cnt-desk">0</strong>
               <small>桌面软件无焦点悬浮提示</small>
             </div>
             <div class="stat-tile" data-jump="mobile">
-              <span class="st-tag mob">📱 手机端专属</span>
+              <span class="st-tag mob">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="5" y="2" width="14" height="20" rx="2" />
+                  <line x1="12" y1="18" x2="12.01" y2="18" />
+                </svg>
+                <span>手机端专属</span>
+              </span>
               <strong id="dash-cnt-mob">0</strong>
               <small>Android 系统级自动填充</small>
             </div>
@@ -243,11 +371,25 @@
 
           <div class="shortcut-cards">
             <div class="sc-card clickable" id="sc-go-auth">
-              <b>⏱ 打开 Authenticator 动态码中枢</b>
+              <b class="sc-title">
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="13" r="8" />
+                  <path d="M12 9v4l2 2" />
+                  <path d="M9 2h6" />
+                </svg>
+                <span>打开 Authenticator 动态码中枢</span>
+              </b>
               <p>集中查看所有带两步验证密钥的 6 位实时动态码，圆形倒计时环一触即复制。</p>
             </div>
             <div class="sc-card clickable" id="sc-go-dl">
-              <b>📦 获取 Windows / Android / 浏览器扩展端</b>
+              <b class="sc-title">
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                  <line x1="12" y1="22.08" x2="12" y2="12" />
+                </svg>
+                <span>获取 Windows / Android / 浏览器扩展端</span>
+              </b>
               <p>从当前服务器直接下载打包好的各端安装包，支持 SHA-256 核验与客户端内一键升级。</p>
             </div>
           </div>
@@ -261,13 +403,23 @@
               <div class="hero-titles">
                 <div class="hero-title-row">
                   <h2 id="d-name"></h2>
-                  <button type="button" class="fav-toggle" id="btn-d-fav" title="收藏 / 取消收藏">☆</button>
+                  <button type="button" class="fav-toggle" id="btn-d-fav" title="收藏 / 取消收藏" aria-label="收藏 / 取消收藏">
+                    <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                    </svg>
+                  </button>
                 </div>
                 <div id="d-badges" class="badges"></div>
               </div>
             </div>
             <div class="head-actions">
-              <button type="button" class="ghost small" id="btn-d-edit">✎ 编辑</button>
+              <button type="button" class="ghost small" id="btn-d-edit">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+                <span>编辑</span>
+              </button>
               <button type="button" class="ghost small danger" id="btn-d-delete">删除</button>
             </div>
           </div>
@@ -305,7 +457,7 @@
                       <circle class="ring-bg" cx="12" cy="12" r="9" />
                       <circle class="ring-fg" id="d-totp-circle" cx="12" cy="12" r="9" stroke-dasharray="56.55" stroke-dashoffset="0" />
                     </svg>
-                    <span id="d-totp-left" class="muted"></span>
+                    <span id="d-totp-left" class="muted tabular-nums"></span>
                   </div>
                 </div>
               </div>
@@ -331,7 +483,13 @@
               <h2 style="margin: 0; font-size: 18px">Authenticator 动态码中枢</h2>
               <p class="muted" style="margin: 4px 0 0">所有含两步验证密钥的凭据集中实时刷新，点击复制 6 位动态码</p>
             </div>
-            <button type="button" class="primary" id="btn-da-toggle-add">＋ 添加验证器</button>
+            <button type="button" class="primary" id="btn-da-toggle-add">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>添加验证器</span>
+            </button>
           </div>
 
           <form id="da-add-form" class="content-card da-add-form" hidden autocomplete="off">
@@ -357,7 +515,13 @@
               </label>
             </div>
             <div class="detail-cta" style="margin-top: 8px">
-              <button type="submit" class="primary" id="btn-da-save">🔒 本地零知识加密并保存</button>
+              <button type="submit" class="primary" id="btn-da-save">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <span>本地零知识加密并保存</span>
+              </button>
             </div>
             <p id="da-add-err" class="error" hidden></p>
           </form>
@@ -365,9 +529,21 @@
           <div id="da-list" class="da-list"></div>
 
           <div id="da-empty" class="empty-pane" hidden>
-            <div class="empty-icon">⏱</div>
+            <div class="empty-icon">
+              <svg class="ic xl" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="13" r="8" />
+                <path d="M12 9v4l2 2" />
+                <path d="M9 2h6" />
+              </svg>
+            </div>
             <p>暂无 Authenticator 验证器记录</p>
-            <button type="button" class="ghost small" id="btn-da-empty-add">＋ 添加首个验证器</button>
+            <button type="button" class="ghost small" id="btn-da-empty-add">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>添加首个验证器</span>
+            </button>
           </div>
         </div>
 
@@ -389,10 +565,10 @@
             <label class="field">
               <span>适用端口范围（服务端四态分类）</span>
               <select id="f-scope">
-                <option value="universal">🌐 三端统一通用账户（网页+电脑+手机互通）</option>
-                <option value="web">🕸 仅网页端密码</option>
-                <option value="desktop">💻 仅电脑客户端密码</option>
-                <option value="mobile">📱 仅手机端密码</option>
+                <option value="universal">三端统一通用账户（网页+电脑+手机互通）</option>
+                <option value="web">仅网页端密码</option>
+                <option value="desktop">仅电脑客户端密码</option>
+                <option value="mobile">仅手机端密码</option>
               </select>
             </label>
           </div>
@@ -404,13 +580,19 @@
             </label>
             <div class="field">
               <div class="fg-label-line" style="margin-bottom: 4px">
-                <span style="font-size: 11px; color: var(--muted)">密码（纯验证器可留空）</span>
+                <span class="field-sublabel">密码（纯验证器可留空）</span>
                 <span id="f-pwd-strength" class="strength-inline"></span>
               </div>
               <div class="inline-row">
                 <input id="f-password" type="password" placeholder="输入或点右侧生成强密码" />
                 <button type="button" class="ghost small" id="btn-f-eye">显示</button>
-                <button type="button" class="ghost small" id="btn-f-gen" title="生成 20 位随机高强度密码">🎲 生成</button>
+                <button type="button" class="ghost small" id="btn-f-gen" title="生成 20 位随机高强度密码">
+                  <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="3" y="3" width="18" height="18" rx="3" />
+                    <path d="M8.5 8.5h.01M15.5 8.5h.01M12 12h.01M8.5 15.5h.01M15.5 15.5h.01" />
+                  </svg>
+                  <span>生成</span>
+                </button>
               </div>
             </div>
           </div>
@@ -451,10 +633,23 @@
         <div id="pane-importer" class="content-card wide-card" hidden>
           <div class="card-head">
             <div>
-              <h2>✨ 多格式文件识别与 AI 密码导入工作台</h2>
+              <h2 class="head-lbl">
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z" />
+                  <path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z" />
+                </svg>
+                <span>多格式文件识别与 AI 密码导入工作台</span>
+              </h2>
               <p class="muted" style="margin: 3px 0 0">文件仅在浏览器内存读取，核对无误后本地零知识加密入库</p>
             </div>
-            <button type="button" class="ghost small" id="btn-imp-manage-providers">🤖 配置模型源</button>
+            <button type="button" class="ghost small" id="btn-imp-manage-providers">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="4" y="4" width="16" height="16" rx="2" />
+                <rect x="9" y="9" width="6" height="6" />
+                <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3" />
+              </svg>
+              <span>配置模型源</span>
+            </button>
           </div>
 
           <div class="importer-toolbar">
@@ -472,8 +667,21 @@
           <div class="dropzone" id="imp-dropzone">
             <p class="drop-title">拖拽 `.xlsx / .docx / .pdf / .csv / 图片` 到此处，或按 <kbd>Ctrl</kbd>+<kbd>V</kbd> 粘贴截图</p>
             <div class="inline-row" style="justify-content: center; margin-top: 12px">
-              <button type="button" class="primary" id="btn-imp-pick-file">📂 选择本地文件</button>
-              <button type="button" class="ghost" id="btn-imp-toggle-text">📝 粘贴文字解析</button>
+              <button type="button" class="primary" id="btn-imp-pick-file">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                </svg>
+                <span>选择本地文件</span>
+              </button>
+              <button type="button" class="ghost" id="btn-imp-toggle-text">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                </svg>
+                <span>粘贴文字解析</span>
+              </button>
             </div>
             <input id="imp-file-input" type="file" accept=".csv,.tsv,.xlsx,.docx,.pdf,.txt,.md,.json,image/*" hidden />
           </div>
@@ -491,10 +699,10 @@
               <b id="imp-preview-summary">识别结果核对表</b>
               <select id="imp-batch-scope" class="small-select">
                 <option value="">批量设适用端…</option>
-                <option value="universal">全部设为：🌐 三端通用</option>
-                <option value="web">全部设为：🕸 网页端</option>
-                <option value="desktop">全部设为：💻 电脑端</option>
-                <option value="mobile">全部设为：📱 手机端</option>
+                <option value="universal">全部设为：三端通用</option>
+                <option value="web">全部设为：网页端</option>
+                <option value="desktop">全部设为：电脑端</option>
+                <option value="mobile">全部设为：手机端</option>
               </select>
             </div>
             <div class="preview-table-scroll">
@@ -514,7 +722,13 @@
               </table>
             </div>
             <div class="detail-cta">
-              <button type="button" class="primary" id="btn-imp-commit">🔒 本地零知识加密并批量上传</button>
+              <button type="button" class="primary" id="btn-imp-commit">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <span>本地零知识加密并批量上传</span>
+              </button>
             </div>
           </div>
         </div>
@@ -523,14 +737,34 @@
         <div id="pane-providers" class="content-card wide-card" hidden>
           <div class="card-head">
             <div>
-              <h2>🤖 模型</h2>
+              <h2 class="head-lbl">
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="4" y="4" width="16" height="16" rx="2" />
+                  <rect x="9" y="9" width="6" height="6" />
+                  <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3" />
+                </svg>
+                <span>模型</span>
+              </h2>
               <p class="muted" style="margin: 3px 0 0">填入各提供商的 API 密钥即可使用其模型；配置仅保存在本机浏览器。</p>
             </div>
-            <button type="button" class="ghost small" id="btn-prov-back">← 返回导密</button>
+            <button type="button" class="ghost small" id="btn-prov-back">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
+              <span>返回导密</span>
+            </button>
           </div>
           <div id="prov-active-card" class="dsh-active-model-card">
             <div class="dsh-active-head">
-              <span class="dsh-active-title">🎯 当前生效的具体模型</span>
+              <span class="dsh-active-title">
+                <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <circle cx="12" cy="12" r="6" />
+                  <circle cx="12" cy="12" r="2" />
+                </svg>
+                <span>当前生效的具体模型</span>
+              </span>
               <span id="prov-active-badge" class="dsh-row-tag active-tag">—</span>
             </div>
             <div class="grid-two">
@@ -547,7 +781,13 @@
           <p id="prov-saved-notice" class="dsh-saved-notice" hidden></p>
           <ul id="prov-rows" class="dsh-rows"></ul>
           <div class="dsh-add-bar">
-            <button type="button" class="primary" id="btn-prov-open-add">＋ 添加模型提供商</button>
+            <button type="button" class="primary" id="btn-prov-open-add">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>添加模型提供商</span>
+            </button>
           </div>
           <div id="prov-add-card" class="dsh-row-card dsh-add-card" hidden></div>
         </div>
@@ -556,10 +796,24 @@
         <div id="pane-downloads" class="content-card wide-card" hidden>
           <div class="card-head">
             <div>
-              <h2>📦 四端客户端下载与 GitHub Releases 更新中心</h2>
+              <h2 class="head-lbl">
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                  <line x1="12" y1="22.08" x2="12" y2="12" />
+                </svg>
+                <span>四端客户端下载与 GitHub Releases 更新中心</span>
+              </h2>
               <p class="muted" style="margin: 3px 0 0">支持直接填写 GitHub 仓库（如 <code>user/repo</code>）或留空读取本服务器 <code>/client-releases/latest.json</code></p>
             </div>
-            <button type="button" class="ghost small" id="btn-dl-refresh">↻ 刷新清单</button>
+            <button type="button" class="ghost small" id="btn-dl-refresh">
+              <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true">
+                <polyline points="23 4 23 10 17 10" />
+                <polyline points="1 20 1 14 7 14" />
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+              </svg>
+              <span>刷新清单</span>
+            </button>
           </div>
           <div class="inline-row" style="margin-bottom: 12px">
             <input id="dl-update-source" type="text" placeholder="留空跟随当前服务器，或填 GitHub 仓库（如 user/repo）" spellcheck="false" />
@@ -574,11 +828,25 @@
         <div id="pane-settings" class="content-card" hidden>
           <div class="card-head">
             <div class="inline-row">
-              <h2 style="margin: 0">⚙ 网页端安全与更新设置</h2>
-              <span id="st-cur-ver" class="badge universal">v2.0.11</span>
+              <h2 class="head-lbl" style="margin: 0">
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+                <span>网页端安全与更新设置</span>
+              </h2>
+              <span id="st-cur-ver" class="badge universal">v2.1.0</span>
             </div>
             <button type="button" class="ghost small" id="btn-st-close">返回</button>
           </div>
+          <label class="field">
+            <span>界面外观主题</span>
+            <select id="st-theme">
+              <option value="system">跟随系统</option>
+              <option value="dark">黑曜石深色</option>
+              <option value="light">陶瓷浅色</option>
+            </select>
+          </label>
           <div class="field">
             <label for="st-update-url">GitHub 发布仓库或自定义更新清单（支持 <code>user/repo</code>，留空跟随服务器）</label>
             <div class="inline-row">
@@ -624,7 +892,7 @@
             <button type="button" class="ghost small" id="btn-mp-select-all">全选当前</button>
             <button type="button" class="ghost small" id="btn-mp-clear-all">清空当前</button>
           </div>
-          <span id="mp-count" class="muted">已选 0 个</span>
+          <span id="mp-count" class="muted tabular-nums">已选 0 个</span>
         </div>
         <div id="mp-list" class="dsh-picker-list"></div>
         <div class="dsh-modal-footer">
@@ -638,23 +906,23 @@
     <script type="importmap">
       {
         "imports": {
-          "./lib/api.js": "./lib/api.js?v=2.0.11",
-          "./lib/crypto.js": "./lib/crypto.js?v=2.0.11",
-          "./lib/vault.js": "./lib/vault.js?v=2.0.11",
-          "./lib/totp.js": "./lib/totp.js?v=2.0.11",
-          "./lib/matcher.js": "./lib/matcher.js?v=2.0.11",
-          "./lib/generator.js": "./lib/generator.js?v=2.0.11",
-          "./lib/realtime.js": "./lib/realtime.js?v=2.0.11",
-          "./lib/updater.js": "./lib/updater.js?v=2.0.11",
-          "./lib/argon2.js": "./lib/argon2.js?v=2.0.11",
-          "./lib/importer/index.js": "./lib/importer/index.js?v=2.0.11",
-          "./lib/importer/extractors.js": "./lib/importer/extractors.js?v=2.0.11",
-          "./lib/importer/providers.js": "./lib/importer/providers.js?v=2.0.11",
-          "./lib/importer/normalizer.js": "./lib/importer/normalizer.js?v=2.0.11",
-          "./lib/importer/zip.js": "./lib/importer/zip.js?v=2.0.11"
+          "./lib/api.js": "./lib/api.js?v=2.1.0",
+          "./lib/crypto.js": "./lib/crypto.js?v=2.1.0",
+          "./lib/vault.js": "./lib/vault.js?v=2.1.0",
+          "./lib/totp.js": "./lib/totp.js?v=2.1.0",
+          "./lib/matcher.js": "./lib/matcher.js?v=2.1.0",
+          "./lib/generator.js": "./lib/generator.js?v=2.1.0",
+          "./lib/realtime.js": "./lib/realtime.js?v=2.1.0",
+          "./lib/updater.js": "./lib/updater.js?v=2.1.0",
+          "./lib/argon2.js": "./lib/argon2.js?v=2.1.0",
+          "./lib/importer/index.js": "./lib/importer/index.js?v=2.1.0",
+          "./lib/importer/extractors.js": "./lib/importer/extractors.js?v=2.1.0",
+          "./lib/importer/providers.js": "./lib/importer/providers.js?v=2.1.0",
+          "./lib/importer/normalizer.js": "./lib/importer/normalizer.js?v=2.1.0",
+          "./lib/importer/zip.js": "./lib/importer/zip.js?v=2.1.0"
         }
       }
     </script>
-    <script src="app.js?v=2.0.11" type="module"></script>
+    <script src="app.js?v=2.1.0" type="module"></script>
   </body>
 </html>

@@ -14,11 +14,48 @@ import { RealtimeHub } from "./lib/realtime.js";
 import { PRESET_PROVIDERS, parsePasswordFile, testProviderConnection, fetchProviderModels } from "./lib/importer/index.js";
 import { compareSemver, fetchReleaseCatalog, checkClientUpdate } from "./lib/updater.js";
 
-const WEB_APP_VERSION = "2.0.11";
+const WEB_APP_VERSION = "2.1.0";
 const PREFS_KEY = "pwdsv_web_prefs_v1";
 const SESSION_KEY = "keynexus_web_session_v1";
 const PROVIDERS_KEY = "pwdsv_web_ai_providers_v1";
 let lastPersistTouchAt = 0;
+
+const VALID_THEMES = new Set(["system", "dark", "light"]);
+const systemDarkMq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+const SVG_ICONS = {
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+  moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+  globe: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+  web: '<rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><circle cx="7" cy="6.5" r=".5"/><circle cx="10" cy="6.5" r=".5"/>',
+  monitor: '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+  smartphone: '<rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>',
+  puzzle: '<path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.802-.48-.968-.925a2.501 2.501 0 1 0-3.214 3.214c.446.166.855.497.925.968a.979.979 0 0 1-.276.837l-1.61 1.61a2.404 2.404 0 0 1-1.705.707 2.402 2.402 0 0 1-1.704-.706l-1.568-1.568a1.026 1.026 0 0 0-.877-.29c-.493.074-.84.504-1.02.968a2.5 2.5 0 1 1-3.237-3.237c.464-.18.894-.527.967-1.02a1.026 1.026 0 0 0-.289-.877l-1.568-1.568A2.402 2.402 0 0 1 1.998 12c0-.617.236-1.234.706-1.704L4.23 8.77c.24-.24.581-.353.917-.303.515.077.877.528 1.073 1.01a2.5 2.5 0 1 0 3.259-3.259c-.482-.196-.933-.558-1.01-1.073-.05-.336.062-.676.303-.917l1.525-1.525A2.402 2.402 0 0 1 12 1.998c.617 0 1.234.236 1.704.706l1.568 1.568c.23.23.556.338.877.29.493-.074.84-.504 1.02-.968a2.5 2.5 0 1 1 3.237 3.237c-.464.18-.894.527-.967 1.02Z"/>',
+  layers: '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+  clock: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M9 2h6"/>',
+  star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+  folder: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+  refresh: '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
+  arrowUpCircle: '<circle cx="12" cy="12" r="10"/><polyline points="16 12 12 8 8 12"/><line x1="12" y1="16" x2="12" y2="8"/>',
+  arrowUp: '<line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>',
+  arrowDown: '<line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/>',
+  x: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+  chevronRight: '<polyline points="9 18 15 12 9 6"/>',
+  search: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+  plus: '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  image: '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>',
+};
+
+function svgIcon(name, className = "ic sm", { filled = false } = {}) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("class", filled ? `${className} filled` : className);
+  svg.innerHTML = SVG_ICONS[name] || "";
+  return svg;
+}
 
 function loadPrefs() {
   try {
@@ -33,6 +70,7 @@ function loadPrefs() {
       lockMinutes: migratedLock,
       clipboardClearSeconds: raw.clipboardClearSeconds ?? 30,
       updateManifestUrl: raw.updateManifestUrl || "",
+      theme: VALID_THEMES.has(raw.theme) ? raw.theme : "dark",
     };
     localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
     return prefs;
@@ -45,6 +83,7 @@ function loadPrefs() {
       lockMinutes: 0,
       clipboardClearSeconds: 30,
       updateManifestUrl: "",
+      theme: "dark",
     };
     localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
     return prefs;
@@ -120,6 +159,59 @@ const state = {
   previewItems: [],
   releaseManifest: null,
 };
+
+function resolveTheme(themePref = state.prefs.theme) {
+  if (themePref === "light") return "light";
+  if (themePref === "dark") return "dark";
+  return systemDarkMq?.matches ? "dark" : "light";
+}
+
+function updateThemeSwitcherButtons(resolved) {
+  const nextIcon = resolved === "dark" ? "sun" : "moon";
+  const nextLabel = resolved === "dark" ? "浅色" : "深色";
+  const nextTitle = resolved === "dark" ? "切换到陶瓷浅色主题" : "切换到黑曜石深色主题";
+
+  const authBtn = $("btn-auth-theme");
+  if (authBtn) {
+    authBtn.textContent = "";
+    authBtn.title = nextTitle;
+    authBtn.setAttribute("aria-label", nextTitle);
+    const lbl = document.createElement("span");
+    lbl.id = "auth-theme-label";
+    lbl.textContent = nextLabel;
+    authBtn.append(svgIcon(nextIcon, "ic sm"), lbl);
+  }
+
+  const sideBtn = $("btn-sidebar-theme");
+  if (sideBtn) {
+    sideBtn.textContent = "";
+    sideBtn.title = nextTitle;
+    sideBtn.setAttribute("aria-label", nextTitle);
+    sideBtn.appendChild(svgIcon(nextIcon, "ic sm"));
+  }
+}
+
+function applyTheme(themePref = state.prefs.theme) {
+  const resolved = resolveTheme(themePref);
+  document.documentElement.setAttribute("data-theme", resolved);
+  updateThemeSwitcherButtons(resolved);
+  return resolved;
+}
+
+function toggleQuickTheme() {
+  const currentResolved = resolveTheme(state.prefs.theme);
+  const next = currentResolved === "dark" ? "light" : "dark";
+  savePrefs({ theme: next });
+  applyTheme(next);
+  if ($("st-theme")) $("st-theme").value = next;
+}
+
+applyTheme(state.prefs.theme);
+systemDarkMq?.addEventListener?.("change", () => {
+  if (state.prefs.theme === "system") applyTheme("system");
+});
+$("btn-auth-theme")?.addEventListener("click", toggleQuickTheme);
+$("btn-sidebar-theme")?.addEventListener("click", toggleQuickTheme);
 
 const realtimeHub = new RealtimeHub({
   onSyncNeeded: async () => {
@@ -403,9 +495,9 @@ async function renderAuthDownloads() {
       verEl.textContent = data.publishedAt ? `${srcTag} · ${data.publishedAt.slice(0, 10)}` : srcTag;
     }
     const defs = [
-      { key: "desktop", icon: "💻", title: "Windows 电脑端", ext: ".exe" },
-      { key: "mobile", icon: "📱", title: "Android 手机端", ext: ".apk" },
-      { key: "extension", icon: "🧩", title: "Chrome / Edge 插件", ext: ".zip" },
+      { key: "desktop", icon: "monitor", title: "Windows 电脑端", ext: ".exe" },
+      { key: "mobile", icon: "smartphone", title: "Android 手机端", ext: ".apk" },
+      { key: "extension", icon: "puzzle", title: "Chrome / Edge 插件", ext: ".zip" },
     ];
     grid.textContent = "";
     for (const d of defs) {
@@ -419,7 +511,7 @@ async function renderAuthDownloads() {
         a.href = "#";
       }
       const b = document.createElement("b");
-      b.textContent = `${d.icon} ${d.title}`;
+      b.append(svgIcon(d.icon, "ic sm"), document.createTextNode(d.title));
       const sm = document.createElement("small");
       sm.textContent = entry?.version ? `v${entry.version} · ${formatSize(entry.size)} (${d.ext})` : "暂未挂载产物";
       a.append(b, sm);
@@ -451,14 +543,18 @@ async function openDownloadsPane() {
     const webVer = data.web?.version || data.version || "";
     if (webBanner && webVer && compareSemver(webVer, WEB_APP_VERSION) > 0) {
       webBanner.hidden = false;
-      webBanner.textContent = `⬆ 检测到新版网页端 v${webVer}（当前运行 v${WEB_APP_VERSION}）：若从 GitHub 发版，请下载新版网页包更新服务端目录或刷新缓存。`;
+      webBanner.textContent = "";
+      webBanner.append(
+        svgIcon("arrowUpCircle", "ic sm"),
+        document.createTextNode(`检测到新版网页端 v${webVer}（当前运行 v${WEB_APP_VERSION}）：若从 GitHub 发版，请下载新版网页包更新服务端目录或刷新缓存。`),
+      );
     }
 
     const specs = [
-      { key: "web", icon: "🌐", name: "Web 网页中枢（当前端）", desc: `当前运行 v${WEB_APP_VERSION}，可一键拉取新版网页静态包或直接刷新重载。` },
-      { key: "desktop", icon: "💻", name: "Windows 桌面守护端", desc: "支持 Win32 前台应用监听、无焦点悬浮 HUD、Simulate 输入与应用内一键更新。" },
-      { key: "mobile", icon: "📱", name: "Android 手机端 APK", desc: "支持拍照 AI 识密、系统级密码自动填充、指纹解锁与应用内一键更新。" },
-      { key: "extension", icon: "🧩", name: "Chrome / Edge 浏览器扩展", desc: "支持网页自动填充/抓密、跨站搜索、右键菜单与更新提示。" },
+      { key: "web", icon: "globe", name: "Web 网页中枢（当前端）", desc: `当前运行 v${WEB_APP_VERSION}，可一键拉取新版网页静态包或直接刷新重载。` },
+      { key: "desktop", icon: "monitor", name: "Windows 桌面守护端", desc: "支持 Win32 前台应用监听、无焦点悬浮 HUD、Simulate 输入与应用内一键更新。" },
+      { key: "mobile", icon: "smartphone", name: "Android 手机端 APK", desc: "支持拍照 AI 识密、系统级密码自动填充、指纹解锁与应用内一键更新。" },
+      { key: "extension", icon: "puzzle", name: "Chrome / Edge 浏览器扩展", desc: "支持网页自动填充/抓密、跨站搜索、右键菜单与更新提示。" },
     ];
     for (const s of specs) {
       const entry = data[s.key] || {};
@@ -467,7 +563,7 @@ async function openDownloadsPane() {
       const head = document.createElement("div");
       head.className = "dl-card-head";
       const b = document.createElement("b");
-      b.textContent = `${s.icon} ${s.name}`;
+      b.append(svgIcon(s.icon, "ic sm"), document.createTextNode(s.name));
       const badge = document.createElement("span");
       badge.className = "badge universal";
       badge.textContent = entry.version ? `v${entry.version}` : s.key === "web" ? `v${WEB_APP_VERSION}` : "未挂载";
@@ -493,7 +589,7 @@ async function openDownloadsPane() {
         const reloadBtn = document.createElement("button");
         reloadBtn.type = "button";
         reloadBtn.className = "ghost small";
-        reloadBtn.textContent = "↻ 强制刷新网页";
+        reloadBtn.append(svgIcon("refresh", "ic sm"), document.createTextNode("强制刷新网页"));
         reloadBtn.addEventListener("click", () => window.location.reload());
         row.appendChild(reloadBtn);
         if (entry.downloadUrl && entry.downloadUrl !== "/" && !entry.downloadUrl.endsWith("/releases/latest")) {
@@ -504,7 +600,7 @@ async function openDownloadsPane() {
           const dlBtn = document.createElement("button");
           dlBtn.type = "button";
           dlBtn.className = "primary";
-          dlBtn.textContent = `⬇ 下载新版网页包 (${formatSize(entry.size)})`;
+          dlBtn.append(svgIcon("download", "ic sm"), document.createTextNode(`下载新版网页包 (${formatSize(entry.size)})`));
           dlA.appendChild(dlBtn);
           row.appendChild(dlA);
         }
@@ -516,7 +612,7 @@ async function openDownloadsPane() {
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "primary";
-        btn.textContent = `⬇ 下载安装包 (${formatSize(entry.size)})`;
+        btn.append(svgIcon("download", "ic sm"), document.createTextNode(`下载安装包 (${formatSize(entry.size)})`));
         dlBtn.appendChild(btn);
         row.appendChild(dlBtn);
         if (entry.sha256) {
@@ -814,14 +910,14 @@ function scopeBadgeClass(scope) {
   return "badge universal";
 }
 const SHORT_SCOPE_TEXT = { universal: "通用", desktop: "电脑", web: "网页", mobile: "手机" };
-const FILTER_TITLES = {
-  all: "全部密码",
-  universal: "🌐 三端通用账户",
-  web: "🕸 网页端专属",
-  desktop: "💻 电脑端专属",
-  mobile: "📱 手机端专属",
-  fav: "★ 星标收藏",
-  totp: "⏱ Authenticator 验证器",
+const FILTER_META = {
+  all: { icon: "layers", label: "全部密码" },
+  universal: { icon: "globe", label: "三端通用账户" },
+  web: { icon: "web", label: "网页端专属" },
+  desktop: { icon: "monitor", label: "电脑端专属" },
+  mobile: { icon: "smartphone", label: "手机端专属" },
+  fav: { icon: "star", label: "星标收藏" },
+  totp: { icon: "clock", label: "Authenticator 验证器" },
 };
 
 function filteredItems() {
@@ -879,7 +975,9 @@ function renderSidebarAndList() {
     btn.className = "nav-item" + (state.filter === key ? " active" : "");
     const lbl = document.createElement("span");
     lbl.className = "nav-lbl";
-    lbl.textContent = "📁 " + (f.name || "未命名");
+    const txt = document.createElement("span");
+    txt.textContent = f.name || "未命名";
+    lbl.append(svgIcon("folder", "ic sm"), txt);
     const em = document.createElement("em");
     em.textContent = String(state.items.filter((i) => i.folderId === f.id).length);
     btn.append(lbl, em);
@@ -920,11 +1018,17 @@ function renderListOnly() {
   const ul = $("vault-list");
   ul.textContent = "";
   $("vault-empty").hidden = list.length > 0;
-  $("list-filter-title").textContent =
-    FILTER_TITLES[state.filter] ||
-    (state.filter.startsWith("folder:")
-      ? `📁 ${state.folders.find((x) => x.id === state.filter.slice(7))?.name || "文件夹"}`
-      : "全部密码");
+  const titleEl = $("list-filter-title");
+  titleEl.textContent = "";
+  if (FILTER_META[state.filter]) {
+    const meta = FILTER_META[state.filter];
+    titleEl.append(svgIcon(meta.icon, "ic sm"), document.createTextNode(meta.label));
+  } else if (state.filter.startsWith("folder:")) {
+    const fname = state.folders.find((x) => x.id === state.filter.slice(7))?.name || "文件夹";
+    titleEl.append(svgIcon("folder", "ic sm"), document.createTextNode(fname));
+  } else {
+    titleEl.append(svgIcon("layers", "ic sm"), document.createTextNode("全部密码"));
+  }
   $("list-result-count").textContent = `${list.length} 项`;
 
   for (const item of list) {
@@ -940,7 +1044,11 @@ function renderListOnly() {
     main.className = "row-main";
     const top = document.createElement("div");
     top.className = "row-top";
-    top.textContent = (item.favorite ? "★ " : "") + (item.name || "(未命名)");
+    if (item.favorite) top.appendChild(svgIcon("star", "ic sm fav-star-ic", { filled: true }));
+    const topTitle = document.createElement("span");
+    topTitle.className = "row-top-title";
+    topTitle.textContent = item.name || "(未命名)";
+    top.appendChild(topTitle);
     const sub = document.createElement("div");
     sub.className = "row-sub";
     sub.textContent = item.username || item.uris?.[0]?.uri || "无用户名";
@@ -998,8 +1106,10 @@ function openDetail(id) {
 
   applyAvatarVisual($("d-avatar"), item.name || item.username, item.id);
   $("d-name").textContent = item.name || "(未命名)";
-  $("btn-d-fav").textContent = item.favorite ? "★" : "☆";
-  $("btn-d-fav").style.opacity = item.favorite ? "1" : "0.45";
+  const favBtn = $("btn-d-fav");
+  favBtn.textContent = "";
+  favBtn.appendChild(svgIcon("star", "ic", { filled: Boolean(item.favorite) }));
+  favBtn.style.opacity = item.favorite ? "1" : "0.45";
 
   const badges = $("d-badges");
   badges.textContent = "";
@@ -1042,7 +1152,7 @@ function openDetail(id) {
         const c = $("d-totp-circle");
         if (c) {
           c.setAttribute("stroke-dashoffset", (circumference * (1 - remaining / (period || 30))).toFixed(2));
-          c.style.stroke = remaining <= 5 ? "#f59e0b" : "#34d399";
+          c.style.stroke = remaining <= 5 ? "var(--warn)" : "var(--totp)";
         }
       } catch {
         $("d-totp").textContent = "密钥无效";
@@ -1077,7 +1187,7 @@ $("btn-d-fav").addEventListener("click", async () => {
   const api = makeApiClient(state.session.serverUrl);
   await api.updateCipher(await ensureAccessToken(), item.id, payload);
   await syncVault(true);
-  showToast(nextFav ? "★ 已收藏" : "已取消收藏");
+  showToast(nextFav ? "已加入星标收藏" : "已取消收藏");
 });
 
 $("btn-d-reveal").addEventListener("click", () => {
@@ -1230,7 +1340,7 @@ async function refreshWebAuthCodes() {
         ref.leftEl.textContent = `${remaining}`;
         ref.leftEl.classList.toggle("urgent", remaining <= 5);
         ref.circleEl.setAttribute("stroke-dashoffset", (circumference * (1 - remaining / (period || 30))).toFixed(2));
-        ref.circleEl.style.stroke = remaining <= 5 ? "#f59e0b" : "#34d399";
+        ref.circleEl.style.stroke = remaining <= 5 ? "var(--warn)" : "var(--totp)";
       } catch {
         ref.currentCode = "";
         ref.codeEl.textContent = "密钥无效";
@@ -1277,7 +1387,8 @@ function renderWebAuthCards() {
     tl.className = "da-title-line";
     const nm = document.createElement("span");
     nm.className = "da-card-name";
-    nm.textContent = (item.favorite ? "★ " : "") + (item.name || "(未命名)");
+    if (item.favorite) nm.appendChild(svgIcon("star", "ic sm fav-star-ic", { filled: true }));
+    nm.appendChild(document.createTextNode(item.name || "(未命名)"));
     const usr = document.createElement("span");
     usr.className = "da-card-user";
     usr.textContent = item.username || item.uris?.[0]?.uri || "验证器";
@@ -1297,7 +1408,9 @@ function renderWebAuthCards() {
     const btnDetail = document.createElement("button");
     btnDetail.type = "button";
     btnDetail.className = "ghost small";
-    btnDetail.textContent = "›";
+    btnDetail.title = "查看详情";
+    btnDetail.setAttribute("aria-label", "查看详情");
+    btnDetail.appendChild(svgIcon("chevronRight", "ic sm"));
     const ref = { id: item.id, name: item.name || "Authenticator", totp: item.totp, currentCode: "", codeEl, circleEl: ringAvatar.querySelector(".ring-fg"), leftEl };
     btnCopy.addEventListener("click", async () => {
       const code = ref.currentCode || (await generateTotp(item.totp)).code;
@@ -2070,7 +2183,7 @@ function saveDraftProvider(draft) {
     return;
   }
   if (!cleanModels.length) {
-    draft.statusText = "✗ 请至少添加一个模型（可点「🔍 获取可用模型」或「＋ 添加模型」）";
+    draft.statusText = "✗ 请至少添加一个模型（可点「获取可用模型」或「添加模型」）";
     draft.statusType = "err";
     renderProvidersPane();
     return;
@@ -2244,13 +2357,17 @@ function buildDshEditorCard(draft) {
   fetchBtn.type = "button";
   fetchBtn.className = "ghost small";
   fetchBtn.disabled = draft.fetching;
-  fetchBtn.textContent = draft.fetching ? "正在询问提供商…" : "🔍 获取可用模型";
+  if (draft.fetching) {
+    fetchBtn.textContent = "正在询问提供商…";
+  } else {
+    fetchBtn.append(svgIcon("search", "ic sm"), document.createTextNode("获取可用模型"));
+  }
   fetchBtn.addEventListener("click", () => fetchModelsIntoDraft(draft));
 
   const addModelBtn = document.createElement("button");
   addModelBtn.type = "button";
   addModelBtn.className = "ghost small";
-  addModelBtn.textContent = "＋ 添加模型";
+  addModelBtn.append(svgIcon("plus", "ic sm"), document.createTextNode("添加模型"));
   addModelBtn.addEventListener("click", () => {
     draft.models.push({ id: "", name: "", inputModalities: ["text"] });
     renderProvidersPane();
@@ -2271,7 +2388,7 @@ function buildDshEditorCard(draft) {
   if (!draft.models.length) {
     const emptyHint = document.createElement("p");
     emptyHint.className = "dsh-hint";
-    emptyHint.textContent = "尚未添加模型：点击右上角「🔍 获取可用模型」自动拉取勾选，或点「＋ 添加模型」手动填写。";
+    emptyHint.textContent = "尚未添加模型：点击右上角「获取可用模型」自动拉取勾选，或点「添加模型」手动填写。";
     mList.appendChild(emptyHint);
   } else {
     draft.models.forEach((m, idx) => {
@@ -2320,7 +2437,11 @@ function buildDshEditorCard(draft) {
       const useModelBtn = document.createElement("button");
       useModelBtn.type = "button";
       useModelBtn.className = isChosen ? "ghost small active-tag" : "ghost small";
-      useModelBtn.textContent = isChosen ? "★ 使用中" : "设为当前";
+      if (isChosen) {
+        useModelBtn.append(svgIcon("star", "ic sm", { filled: true }), document.createTextNode("使用中"));
+      } else {
+        useModelBtn.textContent = "设为当前";
+      }
       useModelBtn.disabled = isChosen || !mId;
       useModelBtn.title = "将此具体模型设为当前默认（同时用于测试连通）";
       useModelBtn.addEventListener("click", () => {
@@ -2340,7 +2461,7 @@ function buildDshEditorCard(draft) {
       const upBtn = document.createElement("button");
       upBtn.type = "button";
       upBtn.className = "dsh-icon-btn";
-      upBtn.textContent = "↑";
+      upBtn.appendChild(svgIcon("arrowUp", "ic sm"));
       upBtn.title = "上移";
       upBtn.disabled = idx === 0;
       upBtn.addEventListener("click", () => {
@@ -2351,7 +2472,7 @@ function buildDshEditorCard(draft) {
       const dnBtn = document.createElement("button");
       dnBtn.type = "button";
       dnBtn.className = "dsh-icon-btn";
-      dnBtn.textContent = "↓";
+      dnBtn.appendChild(svgIcon("arrowDown", "ic sm"));
       dnBtn.title = "下移";
       dnBtn.disabled = idx === draft.models.length - 1;
       dnBtn.addEventListener("click", () => {
@@ -2362,7 +2483,7 @@ function buildDshEditorCard(draft) {
       const rmBtn = document.createElement("button");
       rmBtn.type = "button";
       rmBtn.className = "dsh-icon-btn danger";
-      rmBtn.textContent = "✕";
+      rmBtn.appendChild(svgIcon("x", "ic sm"));
       rmBtn.title = "移除模型";
       rmBtn.addEventListener("click", () => {
         draft.models.splice(idx, 1);
@@ -2414,7 +2535,11 @@ function buildDshEditorCard(draft) {
   testBtn.type = "button";
   testBtn.className = "ghost small";
   testBtn.disabled = draft.testing;
-  testBtn.textContent = draft.testing ? "测试中…" : "⚡ 测试连通";
+  if (draft.testing) {
+    testBtn.textContent = "测试中…";
+  } else {
+    testBtn.append(svgIcon("zap", "ic sm"), document.createTextNode("测试连通"));
+  }
   testBtn.addEventListener("click", () => testDraftConnection(draft));
 
   const cancelBtn = document.createElement("button");
@@ -2481,13 +2606,13 @@ function renderProvidersPane() {
     if (isActive && state.activeModelId) {
       const actTag = document.createElement("span");
       actTag.className = "dsh-row-tag active-tag";
-      actTag.textContent = `★ 当前文本：${state.activeModelId}`;
+      actTag.append(svgIcon("star", "ic sm", { filled: true }), document.createTextNode(`当前文本：${state.activeModelId}`));
       identity.appendChild(actTag);
     }
     if (isPinnedVision) {
       const visTag = document.createElement("span");
       visTag.className = "dsh-row-tag vision-tag";
-      visTag.textContent = `🖼 当前视觉：${state.activeVisionModelId}`;
+      visTag.append(svgIcon("image", "ic sm"), document.createTextNode(`当前视觉：${state.activeVisionModelId}`));
       identity.appendChild(visTag);
     }
 
@@ -2618,25 +2743,37 @@ $("btn-mp-close")?.addEventListener("click", closeModelPickerModal);
 
 $("btn-open-settings").addEventListener("click", () => {
   if ($("st-cur-ver")) $("st-cur-ver").textContent = `v${WEB_APP_VERSION}`;
+  if ($("st-theme")) $("st-theme").value = state.prefs.theme || "dark";
   if ($("st-update-url")) $("st-update-url").value = state.prefs.updateManifestUrl || "";
   if ($("st-keep-signed-in")) $("st-keep-signed-in").checked = state.prefs.keepSignedIn !== false;
   $("st-lock-mins").value = state.prefs.lockMinutes ?? 0;
   $("st-clip-sec").value = state.prefs.clipboardClearSeconds ?? 30;
   showRightPane("settings");
 });
+$("st-theme")?.addEventListener("change", () => {
+  const preview = $("st-theme").value;
+  if (VALID_THEMES.has(preview)) applyTheme(preview);
+});
 $("btn-st-check-update")?.addEventListener("click", async () => {
   savePrefs({ updateManifestUrl: ($("st-update-url")?.value || "").trim() });
   openDownloadsPane();
 });
-$("btn-st-close").addEventListener("click", () => (state.selectedId ? openDetail(state.selectedId) : showRightPane("welcome")));
+$("btn-st-close").addEventListener("click", () => {
+  applyTheme(state.prefs.theme || "dark");
+  if (state.selectedId) openDetail(state.selectedId);
+  else showRightPane("welcome");
+});
 $("btn-st-save").addEventListener("click", () => {
   const keepSignedIn = $("st-keep-signed-in") ? $("st-keep-signed-in").checked : true;
+  const theme = VALID_THEMES.has($("st-theme")?.value) ? $("st-theme").value : (state.prefs.theme || "dark");
   savePrefs({
+    theme,
     keepSignedIn,
     lockMinutes: Math.max(0, Math.min(1440, Number($("st-lock-mins").value) || 0)),
     clipboardClearSeconds: Math.max(5, Math.min(300, Number($("st-clip-sec").value) || 30)),
     updateManifestUrl: ($("st-update-url")?.value || "").trim(),
   });
+  applyTheme(theme);
   if (!keepSignedIn) clearPersistedWebSession();
   else if (state.session) persistWebSession(state.session);
   touchActivity();

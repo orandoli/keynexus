@@ -27,6 +27,7 @@ const PENDING_TTL_MS = 3 * 60 * 1000; // 分步登录 / 跳转后保存提示保
 const DEFAULT_SETTINGS = {
   serverUrl: "",
   email: "",
+  theme: "dark",
   lockMinutes: 0,
   persistSession: true,
   autofillOnLoad: false,
@@ -449,6 +450,7 @@ const handlers = {
       lastSync: session?.lastSync ?? null,
       lockMinutes: settings.lockMinutes,
       persistSession: settings.persistSession !== false,
+      theme: settings.theme || "dark",
     };
   },
 
@@ -873,7 +875,7 @@ const handlers = {
     const serverUrl = normalizeServerUrl(msg?.serverUrl || settings.serverUrl || "");
     const customManifestUrl =
       msg?.customManifestUrl !== undefined ? msg.customManifestUrl : settings.updateManifestUrl || "";
-    const currentVersion = chrome.runtime.getManifest?.().version || "2.0.11";
+    const currentVersion = chrome.runtime.getManifest?.().version || "2.1.0";
     return checkClientUpdate({
       platform: "extension",
       currentVersion,

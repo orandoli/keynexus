@@ -12,8 +12,8 @@ android {
         applicationId = "com.pwdsv.mobile"
         minSdk = 26
         targetSdk = 35
-        versionCode = 211
-        versionName = "2.0.11"
+        versionCode = 212
+        versionName = "2.1.0"
     }
 
     buildTypes {

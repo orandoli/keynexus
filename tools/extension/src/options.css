@@ -1,12 +1,60 @@
-:root {
-  --bg: #090f16;
-  --panel: #131f2d;
-  --line: rgba(160, 196, 232, 0.14);
-  --line-strong: rgba(160, 196, 232, 0.28);
-  --text: #edf3fa;
-  --muted: #8aa2ba;
-  --brand: #156ec8;
-  --err: #ef6b73;
+:root,
+[data-theme="dark"] {
+  --bg: #09090b;
+  --bg-elevated: #0c0d10;
+  --panel: #14161c;
+  --panel-elevated: #191c24;
+  --panel-hover: #1d2029;
+  --input-bg: #0b0c10;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --text: #f4f4f6;
+  --text-secondary: #a1a7b3;
+  --muted: #717784;
+  --brand: #3b82f6;
+  --brand-hover: #2563eb;
+  --brand-soft: rgba(59, 130, 246, 0.16);
+  --brand-border: rgba(59, 130, 246, 0.36);
+  --ok: #10b981;
+  --err: #f43f5e;
+  --err-soft: rgba(244, 63, 94, 0.14);
+  --err-border: rgba(244, 63, 94, 0.35);
+  --ghost-bg: rgba(255, 255, 255, 0.05);
+  --ghost-hover: rgba(255, 255, 255, 0.1);
+  --switch-track: rgba(255, 255, 255, 0.14);
+  --switch-thumb: #f4f4f6;
+  --specular: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.45), 0 12px 32px rgba(0, 0, 0, 0.28);
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg: #f5f6f8;
+  --bg-elevated: #eef0f4;
+  --panel: #ffffff;
+  --panel-elevated: #ffffff;
+  --panel-hover: #f1f3f7;
+  --input-bg: #ffffff;
+  --line: rgba(15, 23, 42, 0.09);
+  --line-strong: rgba(15, 23, 42, 0.18);
+  --text: #0f172a;
+  --text-secondary: #475569;
+  --muted: #64748b;
+  --brand: #2563eb;
+  --brand-hover: #1d4ed8;
+  --brand-soft: rgba(37, 99, 235, 0.1);
+  --brand-border: rgba(37, 99, 235, 0.28);
+  --ok: #059669;
+  --err: #e11d48;
+  --err-soft: rgba(225, 29, 72, 0.1);
+  --err-border: rgba(225, 29, 72, 0.3);
+  --ghost-bg: rgba(15, 23, 42, 0.04);
+  --ghost-hover: rgba(15, 23, 42, 0.08);
+  --switch-track: rgba(15, 23, 42, 0.16);
+  --switch-thumb: #ffffff;
+  --specular: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(15, 23, 42, 0.04);
+  color-scheme: light;
 }
 
 * {
@@ -15,10 +63,18 @@
 
 body {
   margin: 0;
-  background: radial-gradient(circle at 50% 0%, rgba(25, 92, 166, 0.16), transparent 50%), var(--bg);
+  background: var(--bg);
   color: var(--text);
   font: 14px/1.6 "Inter", system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+.ic {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 main {
@@ -27,33 +83,70 @@ main {
   padding: 36px 20px 64px;
 }
 
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.brand-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: var(--specular), var(--shadow-card);
+  flex: none;
+}
+
+.brand-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.page-head-copy {
+  min-width: 0;
+}
+
 h1 {
-  font-size: 22px;
+  font-size: 21px;
   font-weight: 700;
   margin: 0 0 4px;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
+  color: var(--text);
 }
 
 .sub {
-  color: var(--muted);
-  margin: 0 0 26px;
+  color: var(--text-secondary);
+  margin: 0;
+  font-size: 13.5px;
 }
 
 .card {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 15px;
+  border-radius: 14px;
   padding: 20px 22px;
   margin-bottom: 16px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--specular), var(--shadow-card);
 }
 
 .card h2 {
-  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #9ecbff;
+  color: var(--brand);
   margin: 0 0 14px;
 }
 
@@ -62,9 +155,14 @@ h1 {
   margin-bottom: 13px;
 }
 
+.field:last-child {
+  margin-bottom: 0;
+}
+
 .field span {
   display: block;
   font-size: 12px;
+  font-weight: 500;
   color: var(--muted);
   margin-bottom: 5px;
 }
@@ -72,35 +170,97 @@ h1 {
 input[type="url"],
 input[type="text"],
 input[type="email"],
-input[type="number"] {
+input[type="number"],
+select {
   width: 100%;
   padding: 9.5px 12px;
   border-radius: 9px;
   border: 1px solid var(--line);
-  background: #0b121a;
+  background: var(--input-bg);
   color: var(--text);
   font: inherit;
   outline: none;
   transition: border-color 0.14s, box-shadow 0.14s;
 }
 
-input:focus {
-  border-color: #3589e0;
-  box-shadow: 0 0 0 3px rgba(53, 137, 224, 0.16);
+input[type="number"] {
+  font-variant-numeric: tabular-nums;
+}
+
+input::placeholder {
+  color: var(--muted);
+}
+
+input:focus,
+select:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
 }
 
 .check {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 7px 0;
+  gap: 12px;
+  padding: 8px 0;
   font-size: 13.5px;
   color: var(--text);
   cursor: pointer;
+  border-bottom: 1px solid var(--line);
+}
+
+.check:last-child {
+  border-bottom: 0;
+  padding-bottom: 2px;
+}
+
+/* 精致胶囊拨动开关，保留原生 <input type="checkbox"> 语义与所有 ID */
+.check input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--switch-track);
+  border: 1px solid var(--line-strong);
+  flex: none;
+  margin: 0;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.check input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--switch-thumb);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+  transition: transform 0.16s ease;
+}
+
+.check input[type="checkbox"]:checked {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+
+.check input[type="checkbox"]:checked::after {
+  transform: translateX(16px);
+  background: #ffffff;
+}
+
+.check input[type="checkbox"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--brand-soft);
 }
 
 .check input[type="number"] {
   width: 92px;
+  flex: none;
+  padding: 6px 10px;
 }
 
 .row {
@@ -111,39 +271,46 @@ input:focus {
 }
 
 button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   font: inherit;
   font-weight: 500;
   cursor: pointer;
   border-radius: 9px;
   padding: 8.5px 15px;
   border: 1px solid var(--line);
-  background: rgba(28, 43, 61, 0.85);
+  background: var(--ghost-bg);
   color: var(--text);
   transition: all 0.14s;
 }
 
 button:hover {
-  background: rgba(40, 61, 86, 0.95);
+  background: var(--ghost-hover);
   border-color: var(--line-strong);
 }
 
 button.primary {
-  background: linear-gradient(180deg, #2180de, #105aa8);
-  border-color: rgba(112, 184, 255, 0.35);
-  color: #fff;
+  background: var(--brand);
+  border-color: var(--brand-border);
+  color: #ffffff;
+  box-shadow: var(--specular);
 }
 
 button.primary:hover {
-  background: linear-gradient(180deg, #2a8be8, #1466bc);
+  background: var(--brand-hover);
+  border-color: var(--brand-hover);
 }
 
 button.danger {
-  border-color: rgba(239, 107, 115, 0.35);
-  color: #ff9ca3;
+  border-color: var(--err-border);
+  color: var(--err);
+  background: transparent;
 }
 
 button.danger:hover {
-  background: rgba(239, 107, 115, 0.14);
+  background: var(--err-soft);
 }
 
 .muted {
@@ -153,14 +320,16 @@ button.danger:hover {
 
 .small {
   font-size: 12px;
+  color: var(--text-secondary);
 }
 
 code {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  background: #0b121a;
+  background: var(--input-bg);
   border: 1px solid var(--line);
   border-radius: 5px;
   padding: 1px 5px;
+  color: var(--text);
 }
 
 .footer {
@@ -168,4 +337,5 @@ code {
   font-size: 12px;
   text-align: center;
   padding-top: 14px;
+  font-variant-numeric: tabular-nums;
 }

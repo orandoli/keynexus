@@ -1,6 +1,48 @@
-/** 设置页：读写 chrome.storage.local、管理免打扰域名，顺手测服务器连通性 */
+/** 设置页：读写 chrome.storage.local、管理免打扰域名，顺手测服务器连通性，并控制双主题外观 */
 
 const $ = (id) => document.getElementById(id);
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function makeDownloadSvg() {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("class", "ic");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "1.75");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  const p = document.createElementNS(SVG_NS, "path");
+  p.setAttribute("d", "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4");
+  const poly = document.createElementNS(SVG_NS, "polyline");
+  poly.setAttribute("points", "7 10 12 15 17 10");
+  const line = document.createElementNS(SVG_NS, "line");
+  line.setAttribute("x1", "12");
+  line.setAttribute("x2", "12");
+  line.setAttribute("y1", "15");
+  line.setAttribute("y2", "3");
+  svg.append(p, poly, line);
+  return svg;
+}
+
+const systemThemeMq = window.matchMedia?.("(prefers-color-scheme: dark)") || null;
+let currentThemeMode = "dark";
+
+function resolveTheme(mode) {
+  if (mode === "light") return "light";
+  if (mode === "system") return systemThemeMq?.matches === false ? "light" : "dark";
+  return "dark";
+}
+
+function applyTheme(mode) {
+  currentThemeMode = mode === "light" || mode === "system" ? mode : "dark";
+  document.documentElement.dataset.theme = resolveTheme(currentThemeMode);
+}
+
+systemThemeMq?.addEventListener?.("change", () => {
+  if (currentThemeMode === "system") applyTheme("system");
+});
 
 function send(msg) {
   return new Promise((resolve, reject) => {
@@ -40,6 +82,9 @@ function renderNeverSave(domains) {
 
 async function load() {
   const settings = await send({ type: "settings" });
+  const theme = settings.theme || "dark";
+  if ($("theme")) $("theme").value = theme;
+  applyTheme(theme);
   $("server").value = settings.serverUrl || "";
   $("email").value = settings.email || "";
   if ($("persistSession")) $("persistSession").checked = settings.persistSession !== false;
@@ -58,7 +103,10 @@ async function load() {
 }
 
 async function save() {
+  const theme = $("theme")?.value || "dark";
+  applyTheme(theme);
   const patch = {
+    theme,
     serverUrl: ($("server").value || "").trim(),
     email: ($("email").value || "").trim(),
     persistSession: $("persistSession") ? $("persistSession").checked : true,
@@ -75,6 +123,7 @@ async function save() {
 }
 
 for (const id of [
+  "theme",
   "server",
   "email",
   "persistSession",
@@ -124,7 +173,8 @@ $("btn-check-update")?.addEventListener("click", async () => {
     });
     if (res.hasUpdate && res.downloadUrl) {
       pendingDownloadUrl = res.downloadUrl;
-      dlBtn.textContent = `⬇ 下载新版 v${res.latestVersion}`;
+      dlBtn.textContent = "";
+      dlBtn.append(makeDownloadSvg(), document.createTextNode(`下载新版 v${res.latestVersion}`));
       dlBtn.hidden = false;
       out.textContent = `发现新版 v${res.latestVersion}${res.notes ? `（${res.notes}）` : ""}`;
     } else {
