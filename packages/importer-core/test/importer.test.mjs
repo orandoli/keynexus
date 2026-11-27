@@ -419,6 +419,47 @@ console.log("[4] 模型源自动检测 (fetchProviderModels)");
       mapRes.modelDetails.find((m) => m.id === "deepseek-v4.1-flash")?.name === "DeepSeek-V4.1-Flash",
     mapRes,
   );
+
+  // 图片导入支持显式指定跨提供商 visionProvider
+  let usedVisionModel = "";
+  let usedVisionUrl = "";
+  const visRes = await parsePasswordFile(
+    { name: "shot.png", mimeType: "image/png", bytes: new Uint8Array([137, 80, 78, 71]) },
+    {
+      provider: {
+        name: "TextOnly",
+        protocol: "openai-compatible",
+        baseUrl: "https://text.example.com/v1",
+        apiKey: "t-k",
+        textModel: "glm-5.3",
+      },
+      visionProvider: {
+        name: "PinnedVision",
+        protocol: "anthropic",
+        baseUrl: "http://152.32.234.200:8788/",
+        apiKey: "v-k",
+        visionModel: "deepseek-v4.1-flash",
+      },
+      fetchImpl: async (url, init) => {
+        usedVisionUrl = url;
+        usedVisionModel = JSON.parse(init.body).model;
+        return {
+          ok: true,
+          status: 200,
+          async text() {
+            return JSON.stringify({ content: [{ type: "text", text: '{"items":[{"name":"GitHub","username":"u","password":"p"}]}' }] });
+          },
+        };
+      },
+    },
+  );
+  ok(
+    "图片解析优先路由至显式指定的 visionProvider 与视觉模型",
+    usedVisionUrl === "http://152.32.234.200:8788/v1/messages" &&
+      usedVisionModel === "deepseek-v4.1-flash" &&
+      visRes.items.length === 1,
+    { usedVisionUrl, usedVisionModel, visRes },
+  );
 }
 
 console.log("");

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>KeyNexus · 零知识网页端</title>
     <link rel="icon" type="image/png" href="favicon.png" />
-    <link rel="stylesheet" href="styles.css?v=2.0.7" />
+    <link rel="stylesheet" href="styles.css?v=2.0.8" />
   </head>
   <body>
     <!-- ==================== 1. 网页端解锁屏 + 四端客户端下载 ==================== -->
@@ -454,7 +454,7 @@
 
           <div class="importer-toolbar">
             <label class="field" style="flex: 1; margin: 0">
-              <span>当前启用的 AI 模型提供商</span>
+              <span>当前使用的具体模型（文本解析）</span>
               <select id="imp-provider-select"></select>
             </label>
             <label class="check-row" style="margin: 18px 0 0">
@@ -462,6 +462,7 @@
               <span>标准表格也强制调用 AI 推断四态分类</span>
             </label>
           </div>
+          <p id="imp-active-model-hint" class="muted" style="margin: -4px 0 10px"></p>
 
           <div class="dropzone" id="imp-dropzone">
             <p class="drop-title">拖拽 `.xlsx / .docx / .pdf / .csv / 图片` 到此处，或按 <kbd>Ctrl</kbd>+<kbd>V</kbd> 粘贴截图</p>
@@ -522,6 +523,22 @@
             </div>
             <button type="button" class="ghost small" id="btn-prov-back">← 返回导密</button>
           </div>
+          <div id="prov-active-card" class="dsh-active-model-card">
+            <div class="dsh-active-head">
+              <span class="dsh-active-title">🎯 当前生效的具体模型</span>
+              <span id="prov-active-badge" class="dsh-row-tag active-tag">—</span>
+            </div>
+            <div class="grid-two">
+              <label class="field" style="margin: 0">
+                <span>默认文本解析模型</span>
+                <select id="active-text-model-select"></select>
+              </label>
+              <label class="field" style="margin: 0">
+                <span>默认视觉识图模型（截图 / 拍照）</span>
+                <select id="active-vision-model-select"></select>
+              </label>
+            </div>
+          </div>
           <p id="prov-saved-notice" class="dsh-saved-notice" hidden></p>
           <ul id="prov-rows" class="dsh-rows"></ul>
           <div class="dsh-add-bar">
@@ -553,7 +570,7 @@
           <div class="card-head">
             <div class="inline-row">
               <h2 style="margin: 0">⚙ 网页端安全与更新设置</h2>
-              <span id="st-cur-ver" class="badge universal">v2.0.7</span>
+              <span id="st-cur-ver" class="badge universal">v2.0.8</span>
             </div>
             <button type="button" class="ghost small" id="btn-st-close">返回</button>
           </div>
@@ -612,23 +629,23 @@
     <script type="importmap">
       {
         "imports": {
-          "./lib/api.js": "./lib/api.js?v=2.0.7",
-          "./lib/crypto.js": "./lib/crypto.js?v=2.0.7",
-          "./lib/vault.js": "./lib/vault.js?v=2.0.7",
-          "./lib/totp.js": "./lib/totp.js?v=2.0.7",
-          "./lib/matcher.js": "./lib/matcher.js?v=2.0.7",
-          "./lib/generator.js": "./lib/generator.js?v=2.0.7",
-          "./lib/realtime.js": "./lib/realtime.js?v=2.0.7",
-          "./lib/updater.js": "./lib/updater.js?v=2.0.7",
-          "./lib/argon2.js": "./lib/argon2.js?v=2.0.7",
-          "./lib/importer/index.js": "./lib/importer/index.js?v=2.0.7",
-          "./lib/importer/extractors.js": "./lib/importer/extractors.js?v=2.0.7",
-          "./lib/importer/providers.js": "./lib/importer/providers.js?v=2.0.7",
-          "./lib/importer/normalizer.js": "./lib/importer/normalizer.js?v=2.0.7",
-          "./lib/importer/zip.js": "./lib/importer/zip.js?v=2.0.7"
+          "./lib/api.js": "./lib/api.js?v=2.0.8",
+          "./lib/crypto.js": "./lib/crypto.js?v=2.0.8",
+          "./lib/vault.js": "./lib/vault.js?v=2.0.8",
+          "./lib/totp.js": "./lib/totp.js?v=2.0.8",
+          "./lib/matcher.js": "./lib/matcher.js?v=2.0.8",
+          "./lib/generator.js": "./lib/generator.js?v=2.0.8",
+          "./lib/realtime.js": "./lib/realtime.js?v=2.0.8",
+          "./lib/updater.js": "./lib/updater.js?v=2.0.8",
+          "./lib/argon2.js": "./lib/argon2.js?v=2.0.8",
+          "./lib/importer/index.js": "./lib/importer/index.js?v=2.0.8",
+          "./lib/importer/extractors.js": "./lib/importer/extractors.js?v=2.0.8",
+          "./lib/importer/providers.js": "./lib/importer/providers.js?v=2.0.8",
+          "./lib/importer/normalizer.js": "./lib/importer/normalizer.js?v=2.0.8",
+          "./lib/importer/zip.js": "./lib/importer/zip.js?v=2.0.8"
         }
       }
     </script>
-    <script src="app.js?v=2.0.7" type="module"></script>
+    <script src="app.js?v=2.0.8" type="module"></script>
   </body>
 </html>

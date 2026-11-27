@@ -14,7 +14,7 @@ import { RealtimeHub } from "./lib/realtime.js";
 import { PRESET_PROVIDERS, parsePasswordFile, testProviderConnection, fetchProviderModels } from "./lib/importer/index.js";
 import { compareSemver, fetchReleaseCatalog, checkClientUpdate } from "./lib/updater.js";
 
-const WEB_APP_VERSION = "2.0.7";
+const WEB_APP_VERSION = "2.0.8";
 const PREFS_KEY = "pwdsv_web_prefs_v1";
 const PROVIDERS_KEY = "pwdsv_web_ai_providers_v1";
 
@@ -70,6 +70,8 @@ const state = {
   providers: [],
   activeProviderId: "",
   activeModelId: "",
+  activeVisionProviderId: "",
+  activeVisionModelId: "",
   expandedProviderId: null,
   addProviderOpen: false,
   addProviderMode: "catalog",
@@ -1381,6 +1383,26 @@ function normalizeWebProvider(raw) {
   };
 }
 
+function ensureActiveModelValid() {
+  let prov = state.providers.find((p) => p.id === state.activeProviderId) || state.providers[0];
+  if (prov) {
+    state.activeProviderId = prov.id;
+    const hasText = prov.models?.some((m) => m.id === state.activeModelId);
+    if (!hasText) state.activeModelId = prov.models?.[0]?.id || prov.textModel || "";
+  } else {
+    state.activeProviderId = "";
+    state.activeModelId = "";
+  }
+  if (state.activeVisionProviderId && state.activeVisionModelId) {
+    const vp = state.providers.find((p) => p.id === state.activeVisionProviderId);
+    const hasVis = vp?.models?.some((m) => m.id === state.activeVisionModelId && m.inputModalities?.includes("image"));
+    if (!hasVis) {
+      state.activeVisionProviderId = "";
+      state.activeVisionModelId = "";
+    }
+  }
+}
+
 function loadProviders() {
   try {
     const raw = JSON.parse(localStorage.getItem(PROVIDERS_KEY) || "null");
@@ -1388,6 +1410,9 @@ function loadProviders() {
       state.providers = raw.providers.map(normalizeWebProvider);
       state.activeProviderId = raw.activeProviderId || state.providers[0].id;
       state.activeModelId = raw.activeModelId || "";
+      state.activeVisionProviderId = raw.activeVisionProviderId || "";
+      state.activeVisionModelId = raw.activeVisionModelId || "";
+      ensureActiveModelValid();
       return;
     }
   } catch {}
@@ -1398,17 +1423,55 @@ function loadProviders() {
   ];
   state.activeProviderId = state.providers[0].id;
   state.activeModelId = state.providers[0].models[0]?.id || "";
+  state.activeVisionProviderId = "";
+  state.activeVisionModelId = "";
 }
 
 function saveProviders() {
+  ensureActiveModelValid();
   localStorage.setItem(
     PROVIDERS_KEY,
     JSON.stringify({
       activeProviderId: state.activeProviderId,
       activeModelId: state.activeModelId,
+      activeVisionProviderId: state.activeVisionProviderId,
+      activeVisionModelId: state.activeVisionModelId,
       providers: state.providers,
     }),
   );
+}
+
+function resolveEffectiveAiSelection() {
+  ensureActiveModelValid();
+  const baseProv = state.providers.find((p) => p.id === state.activeProviderId) || state.providers[0];
+  const chosenModel = baseProv?.models?.find((m) => m.id === state.activeModelId) || baseProv?.models?.[0];
+
+  let visionProv = null;
+  let visionModelLabel = "";
+  if (state.activeVisionProviderId && state.activeVisionModelId) {
+    const vp = state.providers.find((p) => p.id === state.activeVisionProviderId);
+    if (vp) {
+      visionProv = { ...vp, textModel: state.activeVisionModelId, visionModel: state.activeVisionModelId };
+      visionModelLabel = `${vp.name} / ${state.activeVisionModelId}`;
+    }
+  }
+  if (!visionProv && baseProv) {
+    const fallbackVid = chosenModel?.inputModalities?.includes("image")
+      ? chosenModel.id
+      : baseProv.models?.find((m) => m.inputModalities?.includes("image"))?.id || baseProv.visionModel || "";
+    if (fallbackVid) {
+      visionProv = { ...baseProv, visionModel: fallbackVid };
+      visionModelLabel = `${baseProv.name} / ${fallbackVid}`;
+    }
+  }
+  const effectiveProv = baseProv
+    ? {
+        ...baseProv,
+        textModel: chosenModel?.id || baseProv.textModel,
+        visionModel: visionProv?.visionModel || baseProv.visionModel,
+      }
+    : null;
+  return { effectiveProv, visionProv, chosenModelId: effectiveProv?.textModel || "", visionModelLabel };
 }
 
 function providerHasCredential(p) {
@@ -1418,11 +1481,101 @@ function providerHasCredential(p) {
   return /localhost|127\.0\.0\.1|:11434/i.test(p.baseUrl || "");
 }
 
+function renderActiveModelSelectors() {
+  ensureActiveModelValid();
+  const textSel = $("active-text-model-select");
+  const visionSel = $("active-vision-model-select");
+  const badgeEl = $("prov-active-badge");
+
+  if (textSel) {
+    textSel.textContent = "";
+    const targetVal = `${state.activeProviderId}::${state.activeModelId}`;
+    for (const p of state.providers) {
+      const grp = document.createElement("optgroup");
+      grp.label = `${p.name} · ${protocolLabel(p.protocol)}`;
+      const list = p.models?.length ? p.models : [{ id: p.textModel || p.visionModel || "", name: "", inputModalities: ["text"] }];
+      for (const m of list) {
+        if (!m.id) continue;
+        const o = document.createElement("option");
+        o.value = `${p.id}::${m.id}`;
+        const labelBase = m.name && m.name !== m.id ? `${m.name} (${m.id})` : m.id;
+        o.textContent = labelBase + (m.inputModalities?.includes("image") ? " · 文本+视觉" : "");
+        grp.appendChild(o);
+      }
+      if (grp.children.length) textSel.appendChild(grp);
+    }
+    textSel.value = targetVal;
+  }
+
+  if (visionSel) {
+    visionSel.textContent = "";
+    const autoOpt = document.createElement("option");
+    autoOpt.value = "";
+    autoOpt.textContent = "自动跟随当前提供商的首个视觉模型";
+    visionSel.appendChild(autoOpt);
+    for (const p of state.providers) {
+      const grp = document.createElement("optgroup");
+      grp.label = `${p.name} · ${protocolLabel(p.protocol)}`;
+      for (const m of p.models || []) {
+        if (!m.id || !m.inputModalities?.includes("image")) continue;
+        const o = document.createElement("option");
+        o.value = `${p.id}::${m.id}`;
+        o.textContent = m.name && m.name !== m.id ? `${m.name} (${m.id})` : m.id;
+        grp.appendChild(o);
+      }
+      if (grp.children.length) visionSel.appendChild(grp);
+    }
+    const visVal = state.activeVisionProviderId && state.activeVisionModelId
+      ? `${state.activeVisionProviderId}::${state.activeVisionModelId}`
+      : "";
+    visionSel.value = visVal;
+  }
+
+  if (badgeEl) {
+    const { effectiveProv, chosenModelId, visionModelLabel } = resolveEffectiveAiSelection();
+    if (effectiveProv && chosenModelId) {
+      badgeEl.textContent = `文本：${effectiveProv.name} / ${chosenModelId}` + (visionModelLabel ? ` ｜ 视觉：${visionModelLabel}` : "");
+    } else {
+      badgeEl.textContent = "未选择具体模型";
+    }
+  }
+}
+
+$("active-text-model-select")?.addEventListener("change", () => {
+  const raw = $("active-text-model-select").value || "";
+  const sep = raw.indexOf("::");
+  if (sep > 0) {
+    state.activeProviderId = raw.slice(0, sep);
+    state.activeModelId = raw.slice(sep + 2);
+    saveProviders();
+    renderProvidersPane();
+    renderImpProviderSelect();
+    showToast(`已切换当前文本模型：${state.activeModelId}`);
+  }
+});
+
+$("active-vision-model-select")?.addEventListener("change", () => {
+  const raw = $("active-vision-model-select").value || "";
+  const sep = raw.indexOf("::");
+  if (sep > 0) {
+    state.activeVisionProviderId = raw.slice(0, sep);
+    state.activeVisionModelId = raw.slice(sep + 2);
+    showToast(`已固定视觉识图模型：${state.activeVisionModelId}`);
+  } else {
+    state.activeVisionProviderId = "";
+    state.activeVisionModelId = "";
+    showToast("视觉识图模型已设为自动跟随");
+  }
+  saveProviders();
+  renderProvidersPane();
+  renderImpProviderSelect();
+});
+
 function renderImpProviderSelect() {
+  ensureActiveModelValid();
   const sel = $("imp-provider-select");
   if (!sel) return;
   sel.textContent = "";
-  let matchedValue = "";
   const targetVal = state.activeModelId ? `${state.activeProviderId}::${state.activeModelId}` : "";
 
   for (const p of state.providers) {
@@ -1434,20 +1587,19 @@ function renderImpProviderSelect() {
       const val = `${p.id}::${m.id}`;
       const o = document.createElement("option");
       o.value = val;
-      const cap = m.inputModalities?.includes("image") ? " · 文本+视觉" : "";
-      o.textContent = `${m.name || m.id}${cap}`;
+      const labelBase = m.name && m.name !== m.id ? `${m.name} (${m.id})` : m.id;
+      o.textContent = labelBase + (m.inputModalities?.includes("image") ? " · 文本+视觉" : "");
       grp.appendChild(o);
-      if (val === targetVal || (!matchedValue && p.id === state.activeProviderId)) {
-        matchedValue = val;
-      }
     }
     if (grp.children.length) sel.appendChild(grp);
   }
-  if (matchedValue) {
-    sel.value = matchedValue;
-    const sep = matchedValue.indexOf("::");
-    state.activeProviderId = matchedValue.slice(0, sep);
-    state.activeModelId = matchedValue.slice(sep + 2);
+  if (targetVal) sel.value = targetVal;
+  const hintEl = $("imp-active-model-hint");
+  if (hintEl) {
+    const { effectiveProv, chosenModelId, visionModelLabel } = resolveEffectiveAiSelection();
+    hintEl.textContent = effectiveProv && chosenModelId
+      ? `当前将使用 — 文本解析：${effectiveProv.name} / ${chosenModelId}` + (visionModelLabel ? ` ｜ 截图识图：${visionModelLabel}` : "（暂未配置视觉模型）")
+      : "";
   }
 }
 
@@ -1464,6 +1616,7 @@ $("imp-provider-select").addEventListener("change", () => {
     state.activeModelId = "";
   }
   saveProviders();
+  renderImpProviderSelect();
 });
 $("btn-imp-pick-file").addEventListener("click", () => $("imp-file-input").click());
 $("btn-imp-toggle-text").addEventListener("click", () => { $("imp-raw-text-box").hidden = !$("imp-raw-text-box").hidden; });
@@ -1472,16 +1625,10 @@ async function runImport(fileObj) {
   $("imp-error").hidden = true;
   $("imp-status").hidden = false;
   try {
-    const baseProv = state.providers.find((p) => p.id === state.activeProviderId) || state.providers[0];
-    const chosenModel = baseProv?.models?.find((m) => m.id === state.activeModelId) || baseProv?.models?.[0];
-    const visionFallback = baseProv?.models?.find((m) => m.inputModalities?.includes("image"))?.id || baseProv?.visionModel || "";
-    const effectiveProv = {
-      ...baseProv,
-      textModel: chosenModel?.id || baseProv.textModel,
-      visionModel: chosenModel?.inputModalities?.includes("image") ? chosenModel.id : visionFallback,
-    };
+    const { effectiveProv, visionProv } = resolveEffectiveAiSelection();
     const res = await parsePasswordFile(fileObj, {
       provider: effectiveProv,
+      visionProvider: visionProv || undefined,
       existingVaultItems: state.items,
       forceAi: $("imp-force-ai").checked,
       fetchImpl: makeWebAiFetch(),
@@ -1562,6 +1709,9 @@ $("btn-imp-commit").addEventListener("click", async () => {
 
 function createDraftFromProvider(p) {
   const norm = normalizeWebProvider(p);
+  const currentActive = state.activeProviderId === norm.id && norm.models.some((m) => m.id === state.activeModelId)
+    ? state.activeModelId
+    : norm.models[0]?.id || "";
   return {
     isNew: false,
     mode: "custom",
@@ -1574,6 +1724,7 @@ function createDraftFromProvider(p) {
     apiKey: norm.apiKey,
     customHeaders: norm.customHeaders,
     requiresKey: norm.requiresKey,
+    selectedModelId: currentActive,
     models: norm.models.map((m) => ({ ...m, inputModalities: [...m.inputModalities] })),
     showKey: false,
     statusText: "",
@@ -1600,6 +1751,7 @@ function createDraftForAdd(mode = "catalog", presetTpl = PRESET_PROVIDERS[0]) {
       apiKey: "",
       customHeaders: "",
       requiresKey: presetTpl.requiresKey !== false,
+      selectedModelId: norm.models[0]?.id || "",
       models: norm.models.map((m) => ({ ...m, inputModalities: [...m.inputModalities] })),
       showKey: false,
       statusText: "",
@@ -1622,6 +1774,7 @@ function createDraftForAdd(mode = "catalog", presetTpl = PRESET_PROVIDERS[0]) {
     apiKey: "",
     customHeaders: "",
     requiresKey: true,
+    selectedModelId: "",
     models: [],
     showKey: false,
     statusText: "",
@@ -1783,7 +1936,8 @@ async function fetchModelsIntoDraft(draft) {
 
 async function testDraftConnection(draft) {
   if (!draft || draft.testing) return;
-  const firstModel = draft.models.find((m) => m.id.trim())?.id.trim() || "";
+  const preferred = draft.models.find((m) => m.id.trim() && m.id.trim() === draft.selectedModelId)?.id.trim();
+  const firstModel = preferred || draft.models.find((m) => m.id.trim())?.id.trim() || "";
   if (!draft.baseUrl.trim()) {
     draft.statusText = "✗ 请先填写 API 地址";
     draft.statusType = "err";
@@ -1882,9 +2036,10 @@ function saveDraftProvider(draft) {
   if (idx >= 0) state.providers[idx] = saved;
   else state.providers.push(saved);
 
-  if (draft.isNew || state.activeProviderId === saved.id) {
+  if (draft.isNew || state.activeProviderId === saved.id || draft.selectedModelId) {
     state.activeProviderId = saved.id;
-    state.activeModelId = saved.models[0]?.id || "";
+    const preferred = saved.models.find((m) => m.id === draft.selectedModelId)?.id;
+    state.activeModelId = preferred || saved.models[0]?.id || "";
   }
   saveProviders();
   state.expandedProviderId = null;
@@ -2064,8 +2219,10 @@ function buildDshEditorCard(draft) {
     mList.appendChild(emptyHint);
   } else {
     draft.models.forEach((m, idx) => {
+      const mId = m.id.trim();
+      const isChosen = Boolean(mId) && (draft.selectedModelId ? draft.selectedModelId === mId : idx === 0);
       const mRow = document.createElement("div");
-      mRow.className = "dsh-model-row";
+      mRow.className = "dsh-model-row" + (isChosen ? " active-model-row" : "");
       const top = document.createElement("div");
       top.className = "dsh-model-row-top";
 
@@ -2075,7 +2232,10 @@ function buildDshEditorCard(draft) {
       idIn.type = "text";
       idIn.placeholder = "模型 ID（如 deepseek-v4.1-flash）";
       idIn.value = m.id;
-      idIn.addEventListener("input", () => { m.id = idIn.value; });
+      idIn.addEventListener("input", () => {
+        if (draft.selectedModelId === m.id.trim()) draft.selectedModelId = idIn.value.trim();
+        m.id = idIn.value;
+      });
       const nmIn = document.createElement("input");
       nmIn.type = "text";
       nmIn.placeholder = "显示名称（留空使用模型 ID）";
@@ -2100,6 +2260,26 @@ function buildDshEditorCard(draft) {
         cLbl.append(cb, document.createTextNode(lblTxt));
         checks.appendChild(cLbl);
       }
+
+      const useModelBtn = document.createElement("button");
+      useModelBtn.type = "button";
+      useModelBtn.className = isChosen ? "ghost small active-tag" : "ghost small";
+      useModelBtn.textContent = isChosen ? "★ 使用中" : "设为当前";
+      useModelBtn.disabled = isChosen || !mId;
+      useModelBtn.title = "将此具体模型设为当前默认（同时用于测试连通）";
+      useModelBtn.addEventListener("click", () => {
+        if (!m.id.trim()) return;
+        draft.selectedModelId = m.id.trim();
+        if (!draft.isNew) {
+          const existing = state.providers.find((x) => x.id === draft.id);
+          if (existing && existing.models?.some((em) => em.id === draft.selectedModelId)) {
+            state.activeProviderId = draft.id;
+            state.activeModelId = draft.selectedModelId;
+            saveProviders();
+          }
+        }
+        renderProvidersPane();
+      });
 
       const upBtn = document.createElement("button");
       upBtn.type = "button";
@@ -2133,7 +2313,7 @@ function buildDshEditorCard(draft) {
         renderProvidersPane();
       });
 
-      top.append(inputs, checks, upBtn, dnBtn, rmBtn);
+      top.append(inputs, checks, useModelBtn, upBtn, dnBtn, rmBtn);
       mRow.appendChild(top);
       mList.appendChild(mRow);
     });
@@ -2206,6 +2386,7 @@ function buildDshEditorCard(draft) {
 }
 
 function renderProvidersPane() {
+  renderActiveModelSelectors();
   const noticeEl = $("prov-saved-notice");
   if (noticeEl) {
     noticeEl.hidden = !state.savedProviderNotice;
@@ -2220,6 +2401,7 @@ function renderProvidersPane() {
     const li = document.createElement("li");
     const isExpanded = state.expandedProviderId === p.id && state.editorDraft && !state.editorDraft.isNew;
     const isActive = state.activeProviderId === p.id;
+    const isPinnedVision = state.activeVisionProviderId === p.id && Boolean(state.activeVisionModelId);
     li.className = "dsh-row-card" + (isActive ? " active-card" : "");
 
     const head = document.createElement("div");
@@ -2240,11 +2422,17 @@ function renderProvidersPane() {
     cntTag.className = "dsh-row-tag";
     cntTag.textContent = `${p.models?.length || 0} 个模型`;
     identity.append(dot, nm, protoTag, cntTag);
-    if (isActive) {
+    if (isActive && state.activeModelId) {
       const actTag = document.createElement("span");
       actTag.className = "dsh-row-tag active-tag";
-      actTag.textContent = "当前默认";
+      actTag.textContent = `★ 当前文本：${state.activeModelId}`;
       identity.appendChild(actTag);
+    }
+    if (isPinnedVision) {
+      const visTag = document.createElement("span");
+      visTag.className = "dsh-row-tag vision-tag";
+      visTag.textContent = `🖼 当前视觉：${state.activeVisionModelId}`;
+      identity.appendChild(visTag);
     }
 
     const actions = document.createElement("div");

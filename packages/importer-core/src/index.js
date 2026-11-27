@@ -72,14 +72,14 @@ export async function parsePasswordFile(file, opts = {}) {
   }
 
   // 2. 需要调用 AI 模型（非标表格、Word、PDF、杂乱 TXT 备忘录、图片/拍照）
-  if (!opts.provider) {
-    throw new Error("此文件需要调用 AI 模型进行智能解析，请先配置并选择一个 AI 模型提供商");
-  }
-
   if (extracted.kind === "image" || extracted.kind === "pdf-visual") {
-    onProgress(`正在调用 ${opts.provider.name || "AI 视觉模型"} 识别画面中的账号密码…`);
+    const visionProv = opts.visionProvider || opts.provider;
+    if (!visionProv) {
+      throw new Error("此文件需要调用视觉 AI 模型识别，请先配置并选择一个支持视觉的模型提供商");
+    }
+    onProgress(`正在调用 ${visionProv.name || "AI 视觉模型"} (${visionProv.visionModel || visionProv.textModel || "默认模型"}) 识别画面中的账号密码…`);
     const modelReply = await callAiProvider(
-      opts.provider,
+      visionProv,
       {
         userText: `文件名：${extracted.fileName}\n请仔细识别画面中的所有平台/应用名称、账号、密码、网址及适用端，输出统一 JSON。`,
         media: { mimeType: extracted.mimeType, base64: extracted.base64 },
@@ -92,6 +92,10 @@ export async function parsePasswordFile(file, opts = {}) {
       fileName: extracted.fileName,
       items: normalizeAndCompareRecords(parsedJson, opts.existingVaultItems, extracted.fileName),
     };
+  }
+
+  if (!opts.provider) {
+    throw new Error("此文件需要调用 AI 模型进行智能解析，请先配置并选择一个 AI 模型提供商");
   }
 
   const chunks = splitTextIntoChunks(extracted.text, 12000);

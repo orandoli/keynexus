@@ -353,6 +353,9 @@ kbd { background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line); bord
 .preview-table th, .preview-table td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: left; }
 .preview-table th { position: sticky; top: 0; background: #121e2b; color: var(--muted); }
 /* DSH 风格模型管理页与模型目录编辑器 */
+.dsh-active-model-card { border: 1px solid rgba(56, 189, 248, 0.34); background: linear-gradient(135deg, rgba(16, 44, 72, 0.45), rgba(14, 24, 36, 0.92)); border-radius: var(--radius-lg); padding: 14px 16px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px; }
+.dsh-active-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.dsh-active-title { font-size: 13.5px; font-weight: 600; color: #e2f1ff; }
 .dsh-saved-notice { margin: 0 0 10px; font-size: 12.5px; color: var(--ok); }
 .dsh-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .dsh-row-card { border: 1px solid var(--line); background: #0e1824; border-radius: var(--radius-lg); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
@@ -365,6 +368,7 @@ kbd { background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line); bord
 .dsh-row-name { font-size: 14.5px; font-weight: 600; color: #f1f6fb; }
 .dsh-row-tag { padding: 1px 7px; border: 1px solid var(--line); border-radius: 6px; font-size: 11px; color: var(--muted); background: rgba(255, 255, 255, 0.03); }
 .dsh-row-tag.active-tag { border-color: rgba(56, 189, 248, 0.4); color: #7dd3fc; background: rgba(56, 189, 248, 0.12); }
+.dsh-row-tag.vision-tag { border-color: rgba(167, 139, 250, 0.42); color: #ddd6fe; background: rgba(139, 92, 246, 0.14); }
 .dsh-row-actions { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
 .dsh-add-bar { margin-top: 12px; display: flex; justify-content: flex-start; }
 .dsh-add-card { margin-top: 12px; border-color: rgba(56, 189, 248, 0.32); }
@@ -384,6 +388,7 @@ kbd { background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line); bord
 .dsh-models-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .dsh-model-list { display: flex; flex-direction: column; gap: 6px; }
 .dsh-model-row { display: flex; flex-direction: column; gap: 6px; padding: 9px 10px; border-radius: var(--radius-sm); background: #0e1824; border: 1px solid var(--line); }
+.dsh-model-row.active-model-row { border-color: rgba(56, 189, 248, 0.55); background: rgba(21, 56, 92, 0.35); }
 .dsh-model-row-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .dsh-model-row-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex: 1; min-width: 240px; }
 .dsh-model-row-inputs input { padding: 6.5px 9px; font-size: 12.5px; }
