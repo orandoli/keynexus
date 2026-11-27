@@ -268,14 +268,40 @@ export async function callAiProvider(provider, input, opts = {}) {
   }
 
   let res;
+  const payloadStr = JSON.stringify(bodyObj);
   try {
     res = await fetchFn(url, {
       method: "POST",
       headers,
-      body: JSON.stringify(bodyObj),
+      body: payloadStr,
     });
   } catch (e) {
     throw new Error(`连接模型提供商失败 (${url})：${e?.message || e}`);
+  }
+
+  if ((res.status === 401 || res.status === 403) && apiKey) {
+    let retryHeaders = null;
+    if (protocol === "anthropic" && headers["x-api-key"] && !headers.Authorization) {
+      retryHeaders = { ...headers, Authorization: "Bearer " + apiKey };
+      delete retryHeaders["x-api-key"];
+    } else if (protocol === "openai-compatible" && headers.Authorization && !headers["x-api-key"]) {
+      retryHeaders = { ...headers, "x-api-key": apiKey };
+      delete retryHeaders.Authorization;
+    }
+    if (retryHeaders) {
+      try {
+        const retryRes = await fetchFn(url, {
+          method: "POST",
+          headers: retryHeaders,
+          body: payloadStr,
+        });
+        if (retryRes.ok || (retryRes.status !== 401 && retryRes.status !== 403)) {
+          res = retryRes;
+        }
+      } catch {
+        // Ignore retry transport failure and preserve primary 401/403 error handling.
+      }
+    }
   }
 
   const rawText = await res.text();
@@ -502,6 +528,7 @@ export async function fetchProviderModels(provider, opts = {}) {
       res = await fetchFn(endpoint, { method: "GET", headers });
     } catch (e) {
       if (
+        !opts.fetchImpl &&
         typeof window !== "undefined" &&
         window.location?.protocol === "https:" &&
         /^http:\/\//i.test(endpoint)

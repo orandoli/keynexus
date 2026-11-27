@@ -341,6 +341,58 @@ console.log("[4] 模型源自动检测 (fetchProviderModels)");
     leakedErrMsg = String(e.message || e);
   }
   ok("错误文本脱敏 API Key", !leakedErrMsg.includes("sk-topsecret-9999") && leakedErrMsg.includes("***"), leakedErrMsg);
+
+  // callAiProvider 在 Anthropic 401 时自动切换 Bearer 兜底重试
+  const msgAuthCalls = [];
+  const msgReply = await callAiProvider(
+    { protocol: "anthropic", baseUrl: "https://wb.example.com", apiKey: "sk-ant-bearer-only", textModel: "claude-sonnet-4-5" },
+    { systemPrompt: "sys", userText: "hi" },
+    {
+      fetchImpl: async (_url, init) => {
+        msgAuthCalls.push({ xApiKey: init.headers["x-api-key"] || "", auth: init.headers.Authorization || "" });
+        if (init.headers["x-api-key"]) {
+          return { ok: false, status: 401, async text() { return "use bearer"; } };
+        }
+        return {
+          ok: true,
+          status: 200,
+          async text() {
+            return JSON.stringify({ content: [{ type: "text", text: '{"ok":true}' }] });
+          },
+        };
+      },
+    },
+  );
+  ok(
+    "callAiProvider Anthropic 401 自动 Bearer 重试成功",
+    msgAuthCalls.length === 2 && msgAuthCalls[1].auth === "Bearer sk-ant-bearer-only" && msgReply === '{"ok":true}',
+    msgAuthCalls,
+  );
+
+  // 传入自定义 fetchImpl 抛错时不误报浏览器 Mixed Content
+  let customFetchErr = "";
+  const prevWin = globalThis.window;
+  try {
+    globalThis.window = { location: { protocol: "https:" } };
+    await fetchProviderModels(
+      { protocol: "openai-compatible", baseUrl: "http://152.32.234.200:8788", apiKey: "sk-x" },
+      {
+        fetchImpl: async () => {
+          throw new Error("relay unreachable");
+        },
+      },
+    );
+  } catch (e) {
+    customFetchErr = String(e.message || e);
+  } finally {
+    if (prevWin === undefined) delete globalThis.window;
+    else globalThis.window = prevWin;
+  }
+  ok(
+    "自定义 fetchImpl 抛错不误报 Mixed Content",
+    customFetchErr.includes("relay unreachable") && !customFetchErr.includes("浏览器安全策略拦截"),
+    customFetchErr,
+  );
 }
 
 console.log("");

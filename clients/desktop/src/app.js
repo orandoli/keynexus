@@ -2145,7 +2145,7 @@ async function getDesktopAppVersion() {
   } catch {
     /* 忽略 */
   }
-  return "2.0.2";
+  return "2.0.3";
 }
 
 function renderDesktopUpdateState(res = state.pendingUpdate, explicitMsg = "") {

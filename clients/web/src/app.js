@@ -14,7 +14,7 @@ import { RealtimeHub } from "./lib/realtime.js";
 import { PRESET_PROVIDERS, parsePasswordFile, testProviderConnection, fetchProviderModels } from "./lib/importer/index.js";
 import { compareSemver, fetchReleaseCatalog, checkClientUpdate } from "./lib/updater.js";
 
-const WEB_APP_VERSION = "2.0.2";
+const WEB_APP_VERSION = "2.0.3";
 const PREFS_KEY = "pwdsv_web_prefs_v1";
 const PROVIDERS_KEY = "pwdsv_web_ai_providers_v1";
 
@@ -247,6 +247,59 @@ async function ensureAccessToken() {
   s.refreshToken = t.refreshToken;
   s.tokenExpiresAt = Date.now() + (t.expiresIn || 3600) * 1000 - 60000;
   return s.accessToken;
+}
+
+function makeWebAiFetch() {
+  async function callRelay(targetUrl, init = {}) {
+    const token = await ensureAccessToken();
+    const relayUrl = `${window.location.origin}/ai-relay`;
+    const reqHeaders = {};
+    if (init.headers) {
+      if (init.headers instanceof Headers) {
+        init.headers.forEach((v, k) => {
+          reqHeaders[k] = v;
+        });
+      } else if (typeof init.headers === "object") {
+        Object.assign(reqHeaders, init.headers);
+      }
+    }
+    const res = await fetch(relayUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-KeyNexus-Auth": `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        url: String(targetUrl || ""),
+        method: String(init.method || "GET").toUpperCase(),
+        headers: reqHeaders,
+        body: init.body ?? null,
+      }),
+    });
+    if (res.status === 404 && res.headers.get("X-KeyNexus-Relay") !== "1") {
+      throw new Error("服务端尚未启用 /ai-relay 中继服务，请先在服务器更新 Caddy 与 compose 配置");
+    }
+    return {
+      ok: res.ok,
+      status: res.status,
+      text: () => res.text(),
+    };
+  }
+
+  return async function webAiFetch(url, init = {}) {
+    const target = String(url || "");
+    if (window.location?.protocol === "https:" && /^http:\/\//i.test(target) && state.session) {
+      return await callRelay(target, init);
+    }
+    try {
+      return await fetch(target, init);
+    } catch (directErr) {
+      if (state.session && /^https?:\/\//i.test(target)) {
+        return await callRelay(target, init);
+      }
+      throw directErr;
+    }
+  };
 }
 
 /* ----------------------------------------------------- 四端客户端下载中心 */
@@ -1295,6 +1348,7 @@ async function runImport(fileObj) {
       provider: prov,
       existingVaultItems: state.items,
       forceAi: $("imp-force-ai").checked,
+      fetchImpl: makeWebAiFetch(),
       onProgress: (t) => { $("imp-status").textContent = t; },
     });
     state.previewItems = res.items || [];
@@ -1426,13 +1480,16 @@ async function detectWebProviderModels(silent = false) {
     btn.textContent = "检测中…";
   }
   try {
-    const res = await fetchProviderModels({
-      protocol: $("p-protocol").value,
-      baseUrl,
-      exactEndpoint: Boolean($("p-exact")?.checked),
-      apiKey: $("p-apikey").value.trim(),
-      customHeaders: $("p-headers").value.trim(),
-    });
+    const res = await fetchProviderModels(
+      {
+        protocol: $("p-protocol").value,
+        baseUrl,
+        exactEndpoint: Boolean($("p-exact")?.checked),
+        apiKey: $("p-apikey").value.trim(),
+        customHeaders: $("p-headers").value.trim(),
+      },
+      { fetchImpl: makeWebAiFetch() },
+    );
     const dl = $("p-models-datalist");
     const sel = $("p-model-quick");
     if (dl) {
@@ -1535,10 +1592,13 @@ $("prov-form").addEventListener("submit", (e) => {
 $("btn-prov-test").addEventListener("click", async () => {
   $("prov-msg").textContent = "测试连接中…";
   try {
-    const r = await testProviderConnection({
-      name: $("p-name").value, protocol: $("p-protocol").value, baseUrl: $("p-baseurl").value,
-      exactEndpoint: $("p-exact").checked, apiKey: $("p-apikey").value, textModel: $("p-text-model").value, customHeaders: $("p-headers").value,
-    });
+    const r = await testProviderConnection(
+      {
+        name: $("p-name").value, protocol: $("p-protocol").value, baseUrl: $("p-baseurl").value,
+        exactEndpoint: $("p-exact").checked, apiKey: $("p-apikey").value, textModel: $("p-text-model").value, customHeaders: $("p-headers").value,
+      },
+      { fetchImpl: makeWebAiFetch() },
+    );
     $("prov-msg").textContent = "✓ 连通成功：" + r.sample;
   } catch (err) {
     $("prov-msg").textContent = "✗ 失败：" + err.message;

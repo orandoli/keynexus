@@ -1517,14 +1517,14 @@ function getMobileAppVersion() {
     try {
       const info = JSON.parse(native.getAppVersionJson() || "{}");
       return {
-        versionName: info.versionName || "2.0.2",
-        versionCode: Number(info.versionCode || 202),
+        versionName: info.versionName || "2.0.3",
+        versionCode: Number(info.versionCode || 203),
       };
     } catch {
       /* 忽略 */
     }
   }
-  return { versionName: "2.0.2", versionCode: 202 };
+  return { versionName: "2.0.3", versionCode: 203 };
 }
 
 window.__pwdsvUpdateProgress = (pct) => {
