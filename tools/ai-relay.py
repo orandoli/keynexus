@@ -255,23 +255,26 @@ def make_relay_handler(config: RelayConfig) -> type[BaseHTTPRequestHandler]:
             )
             upstream_req = urllib.request.Request(connect_url, data=out_body, headers=out_headers, method=method)
 
+            req_timeout = min(config.timeout, 20.0) if method == "GET" else config.timeout
+            has_self_rewrite = is_self_host and connect_url != parsed.geturl()
+            primary_timeout = min(req_timeout, 3.0) if has_self_rewrite else req_timeout
+
             try:
                 try:
-                    resp_cm = opener.open(upstream_req, timeout=config.timeout)
+                    resp_cm = opener.open(upstream_req, timeout=primary_timeout)
                 except urllib.error.HTTPError:
                     raise
                 except (urllib.error.URLError, TimeoutError, OSError):
-                    original_url = parsed.geturl()
-                    if not (is_self_host and connect_url != original_url):
+                    if not has_self_rewrite:
                         raise
                     fallback_headers = {k: v for k, v in out_headers.items() if k.lower() != "host"}
                     fallback_req = urllib.request.Request(
-                        original_url,
+                        parsed.geturl(),
                         data=out_body,
                         headers=fallback_headers,
                         method=method,
                     )
-                    resp_cm = opener.open(fallback_req, timeout=config.timeout)
+                    resp_cm = opener.open(fallback_req, timeout=req_timeout)
 
                 with resp_cm as resp:
                     resp_body = resp.read()

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>KeyNexus · 零知识网页端</title>
     <link rel="icon" type="image/png" href="favicon.png" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=2.0.4" />
   </head>
   <body>
     <!-- ==================== 1. 网页端解锁屏 + 四端客户端下载 ==================== -->
@@ -551,13 +551,13 @@
               </div>
               <label class="field"><span>Base URL *</span><input id="p-baseurl" type="url" spellcheck="false" required /></label>
               <label class="check-row"><input id="p-exact" type="checkbox" /><span>完整精确端点</span></label>
-              <label class="field">
-                <span>API Key</span>
+              <div class="field">
+                <label for="p-apikey">API Key</label>
                 <div class="inline-row">
                   <input id="p-apikey" type="password" spellcheck="false" />
                   <button type="button" class="ghost small" id="btn-prov-detect" title="根据 Base URL 与 API Key 拉取可用模型">🔍 检测模型</button>
                 </div>
-              </label>
+              </div>
               <div class="grid-two">
                 <label class="field"><span>文本模型 *</span><input id="p-text-model" type="text" list="p-models-datalist" required /></label>
                 <label class="field"><span>视觉模型</span><input id="p-vision-model" type="text" list="p-models-datalist" /></label>
@@ -605,17 +605,17 @@
           <div class="card-head">
             <div class="inline-row">
               <h2 style="margin: 0">⚙ 网页端安全与更新设置</h2>
-              <span id="st-cur-ver" class="badge universal">v2.0.3</span>
+              <span id="st-cur-ver" class="badge universal">v2.0.4</span>
             </div>
             <button type="button" class="ghost small" id="btn-st-close">返回</button>
           </div>
-          <label class="field">
-            <span>GitHub 发布仓库或自定义更新清单（支持 <code>user/repo</code>，留空跟随服务器）</span>
+          <div class="field">
+            <label for="st-update-url">GitHub 发布仓库或自定义更新清单（支持 <code>user/repo</code>，留空跟随服务器）</label>
             <div class="inline-row">
               <input id="st-update-url" type="text" placeholder="user/repo 或 https://github.com/user/repo" spellcheck="false" />
               <button type="button" class="ghost" id="btn-st-check-update">检查新版</button>
             </div>
-          </label>
+          </div>
           <div class="grid-two">
             <label class="field">
               <span>空闲自动锁定时间（分钟，0 = 不自动锁）</span>
@@ -635,6 +635,6 @@
     </section>
 
     <footer id="toast-bar" class="toast-bar" hidden></footer>
-    <script src="app.js" type="module"></script>
+    <script src="app.js?v=2.0.4" type="module"></script>
   </body>
 </html>

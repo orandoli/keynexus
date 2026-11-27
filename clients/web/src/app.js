@@ -11,10 +11,10 @@ import { generateTotp, parseTotp } from "./lib/totp.js";
 import { resolveItemScope, SCOPE_LABELS } from "./lib/matcher.js";
 import { generatePassword, estimateStrength } from "./lib/generator.js";
 import { RealtimeHub } from "./lib/realtime.js";
-import { PRESET_PROVIDERS, parsePasswordFile, testProviderConnection, fetchProviderModels } from "./lib/importer/index.js";
+import { PRESET_PROVIDERS, parsePasswordFile, testProviderConnection, fetchProviderModels } from "./lib/importer/index.js?v=2.0.4";
 import { compareSemver, fetchReleaseCatalog, checkClientUpdate } from "./lib/updater.js";
 
-const WEB_APP_VERSION = "2.0.3";
+const WEB_APP_VERSION = "2.0.4";
 const PREFS_KEY = "pwdsv_web_prefs_v1";
 const PROVIDERS_KEY = "pwdsv_web_ai_providers_v1";
 
@@ -1465,16 +1465,27 @@ function loadProviderForm(p) {
 }
 
 let webDetectTimer = null;
+let webDetectSeq = 0;
 async function detectWebProviderModels(silent = false) {
-  const baseUrl = $("p-baseurl")?.value.trim() || "";
-  if (!baseUrl) {
-    if (!silent && $("prov-msg")) $("prov-msg").textContent = "请先填写 Base URL";
-    return;
+  if (!silent && webDetectTimer) {
+    clearTimeout(webDetectTimer);
+    webDetectTimer = null;
   }
   const msgEl = $("prov-msg");
+  const baseUrl = $("p-baseurl")?.value.trim() || "";
+  if (!baseUrl) {
+    if (!silent && msgEl) {
+      msgEl.textContent = "请先填写 Base URL";
+      msgEl.scrollIntoView?.({ block: "nearest" });
+    }
+    return;
+  }
+  const seq = ++webDetectSeq;
   const btn = $("btn-prov-detect");
-  const origBtn = btn?.textContent || "🔍 检测模型";
-  if (!silent && msgEl) msgEl.textContent = "正在检测可用模型…";
+  if (!silent && msgEl) {
+    msgEl.textContent = "正在检测可用模型…";
+    msgEl.scrollIntoView?.({ block: "nearest" });
+  }
   if (btn) {
     btn.disabled = true;
     btn.textContent = "检测中…";
@@ -1490,6 +1501,7 @@ async function detectWebProviderModels(silent = false) {
       },
       { fetchImpl: makeWebAiFetch() },
     );
+    if (seq !== webDetectSeq) return;
     const dl = $("p-models-datalist");
     const sel = $("p-model-quick");
     if (dl) {
@@ -1515,13 +1527,17 @@ async function detectWebProviderModels(silent = false) {
     if (!$("p-vision-model").value.trim() && res.suggestedVision) $("p-vision-model").value = res.suggestedVision;
     if (msgEl) {
       msgEl.textContent = `✓ 检测到 ${res.models.length} 个模型（已自动填入推荐模型，也可从下方列表切换）`;
+      msgEl.scrollIntoView?.({ block: "nearest" });
     }
   } catch (err) {
-    if (!silent && msgEl) msgEl.textContent = "✗ 模型检测失败：" + (err?.message || err);
+    if (seq === webDetectSeq && !silent && msgEl) {
+      msgEl.textContent = "✗ 模型检测失败：" + (err?.message || err);
+      msgEl.scrollIntoView?.({ block: "nearest" });
+    }
   } finally {
-    if (btn) {
+    if (btn && seq === webDetectSeq) {
       btn.disabled = false;
-      btn.textContent = origBtn;
+      btn.textContent = "🔍 检测模型";
     }
   }
 }

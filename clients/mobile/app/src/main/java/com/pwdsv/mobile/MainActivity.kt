@@ -345,11 +345,11 @@ class MainActivity : AppCompatActivity() {
                     pInfo.versionCode.toLong()
                 }
                 JSONObject()
-                    .put("versionName", pInfo.versionName ?: "2.0.3")
+                    .put("versionName", pInfo.versionName ?: "2.0.4")
                     .put("versionCode", code)
                     .toString()
             }.getOrElse {
-                """{"versionName":"2.0.3","versionCode":203}"""
+                """{"versionName":"2.0.4","versionCode":204}"""
             }
         }
 
